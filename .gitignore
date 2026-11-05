@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+node_modules/
+*-out.log
+*-err.log
+local-server.log
+dist/
+data/
+lt-*.log
+.test-data/

@@ -1,0 +1,87 @@
+:root {
+  color-scheme: dark;
+  --color-scheme: dark;
+  --page: #000;
+  --canvas: #0a0a0f;
+  --surface: #0b0b0f;
+  --panel: #141417;
+  --card: #1c1c1e;
+  --raised: #26262a;
+  --hover: #2c2c33;
+  --text: #fff;
+  --text-body: #e8e8ed;
+  --text-secondary: #c8c8d0;
+  --muted: #8e8e93;
+  --subtle: #6d7380;
+  --accent: #3a7afe;
+  --accent-text: #8fb4ff;
+  --selected: #1a2438;
+  --composer: #191c29;
+  --border: rgba(255,255,255,.09);
+  --divider: rgba(255,255,255,.07);
+  --soft: rgba(255,255,255,.06);
+  --green: #30d158;
+  --red: #ff453a;
+  --amber: #ff9f0a;
+  --navigation: rgba(8,8,10,.92);
+  --bottom-fade: linear-gradient(to bottom, transparent, rgba(6,10,26,.9) 40%, #060a1a);
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-scheme: light;
+  --page: #f0f7ff;
+  --canvas: #e8f3ff;
+  --surface: #f3f9ff;
+  --panel: #f8fbff;
+  --card: #fbfdff;
+  --raised: #e8f3fe;
+  --hover: #dfedfc;
+  --text: #173554;
+  --text-body: #294865;
+  --text-secondary: #466581;
+  --muted: #607e99;
+  --subtle: #728da5;
+  --accent: #8bc3f3;
+  --accent-text: #4277a5;
+  --selected: #e1f0ff;
+  --composer: #fbfdff;
+  --border: rgba(34,52,83,.13);
+  --divider: rgba(34,52,83,.09);
+  --soft: rgba(34,52,83,.05);
+  --green: #168348;
+  --red: #d13738;
+  --amber: #a16308;
+  --navigation: rgba(247,251,255,.96);
+  --bottom-fade: linear-gradient(to bottom, transparent, rgba(240,247,255,.94) 40%, #f0f7ff);
+}
+html body { color:var(--text-body); background:#fff; }
+.theme-trigger { width:100%; text-align:left; border:0; font:inherit; }
+.theme-choices { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:8px; }
+.theme-choice { display:flex; flex-direction:column; align-items:center; gap:12px; padding:20px 12px; border:1px solid var(--border); border-radius:16px; color:var(--text); background:var(--card); font:inherit; cursor:pointer; }
+.theme-choice.selected { border-color:var(--accent); background:var(--selected); box-shadow:inset 0 0 0 1px var(--accent); }
+.theme-choice svg { width:28px; height:28px; color:var(--accent); }
+.theme-choice:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+:root .sheet:not(.on) { visibility:hidden; pointer-events:none; }
+
+/* Keep white foregrounds on brand-colored actions in both themes. */
+:root .msg.user .bubble, :root .btn.primary, :root .xy-tool.send, :root .nbadge, :root .sw-del,
+:root .intro-btn-primary, :root .sim-logo, :root .pm-save, :root .soc-save { color:#fff; }
+:root .dynamic-island { background:#101216; }
+:root[data-theme="light"] body { background:#fff; }
+:root[data-theme="light"] .screen svg[stroke="#fff"] { stroke:var(--text); }
+:root[data-theme="light"] .statusbar svg[fill="#fff"],
+:root[data-theme="light"] .screen .more-grid svg[fill="#fff"] { fill:var(--text); }
+:root[data-theme="light"] .sw-del svg[stroke="#fff"] { stroke:#fff; }
+:root[data-theme="light"] .screen [style*="color:#fff"],
+:root[data-theme="light"] .screen [style*="color: #fff"] { color:var(--text) !important; }
+:root[data-theme="light"] .sim-panel { box-shadow:0 16px 48px rgba(34,52,83,.12); }
+:root[data-theme="light"] .sheet { box-shadow:0 -8px 30px rgba(34,52,83,.10); }
+:root[data-theme="light"] .intro-card { background:var(--panel); box-shadow:0 24px 70px rgba(34,52,83,.16); }
+:root[data-theme="light"] .pd-node .cir { background:var(--raised); }
+:root[data-theme="light"] .pd-mode { background:var(--selected); }
+:root[data-theme="light"] .msg.user .bubble { background:#dcefff; color:#294865; }
+:root[data-theme="light"] .xy-tool.send { background:#c4e3fc; color:#315b7e; }
+:root[data-theme="light"] .btn.primary,
+:root[data-theme="light"] .intro-btn-primary,
+:root[data-theme="light"] .pm-save,
+:root[data-theme="light"] .soc-save { background:#c4e3fc; color:#294865; box-shadow:none; }

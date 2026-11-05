@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<base href="/">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="js/theme.js"></script>
+<link rel="stylesheet" href="css/theme.css">
+<title>电站仿真管理端</title>
+<link rel="stylesheet" href="css/simulator.css">
+</head>
+<body>
+<link rel="stylesheet" href="css/manager.css">
+<section class="manager-access" id="manager-access"><form class="manager-login" id="manager-login-form"><h1>电站仿真管理端</h1><p>使用管理口令登录，创建电站并将数据同步给独立 APP。首次运行可导入本浏览器原有电站；运行时请保持管理页打开。</p><label for="manager-token">管理口令</label><input type="password" id="manager-token" autocomplete="current-password" placeholder="MANAGER_TOKEN"><label class="manager-remember"><input type="checkbox" id="manager-remember" checked>记住登录 30 天</label><button type="submit">登录并运行</button><button type="button" id="manager-takeover">接管运行</button><p class="manager-login-message" id="manager-login-message" role="status"></p></form></section>
+<div class="manager-bar"><span id="manager-sync" role="status">正在连接共享服务…</span><span class="grow"></span><button type="button" id="manager-show-code">显示 / 隐藏 APP 控制码</button><input class="manager-control-code" id="manager-control-code" type="password" readonly aria-label="APP 控制口令"><button type="button" id="manager-logout">退出管理</button></div>
+
+<header class="top">
+  <div class="brand">
+    <span class="sim-logo">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.4 5.4l1.7 1.7M16.9 16.9l1.7 1.7M18.6 5.4l-1.7 1.7M7.1 16.9l-1.7 1.7"/></svg>
+    </span>
+    <div>
+      <div class="bt">光储电站仿真台</div>
+      <div class="bs" id="sim-sub">独立管理端 · 服务端共享数据</div>
+    </div>
+  </div>
+  <div class="grow"></div>
+
+  <div class="sim-clock">
+    <b id="sim-time">--:--</b>
+    <span class="cs" id="sim-phase">白天 · 光照良好</span>
+    <span class="sim-spd live" id="sim-spd" onclick="simCycleSpeed()" title="切换时间倍率 / 演示加速">实时</span>
+    <span class="cs" id="sim-day">第 1 天</span>
+  </div>
+  <span class="sim-state" id="sim-state" onclick="simToggle()" title="点击暂停/继续"><i></i>运行中</span>
+  <a class="lnk" id="lnk-app" href="/app/" target="fs_app" title="在新标签页打开手机 APP 仿真">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="7" y="2.5" width="10" height="19" rx="2.4"/><path d="M10.6 18.6h2.8"/></svg>
+    打开 APP 监控
+  </a>
+</header>
+
+<div class="demo-tip" id="demo-tip" style="display:none">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5fe08a" stroke-width="1.9" stroke-linecap="round"><path d="M12 3.2 4.5 7v5.4c0 4.4 3.1 7.5 7.5 8.4 4.4-.9 7.5-4 7.5-8.4V7z"/><path d="m8.8 12 2.2 2.2 4.2-4.2"/></svg>
+  <span>朋友分享的演示电站：<b id="demo-name">—</b>，正在实时运行。这是只读演示环境，不会动到你自己建的电站。</span>
+  <span class="grow"></span>
+  <a class="demo-exit" href="javascript:void 0" onclick="exitDemo(event)">看我的电站 ›</a>
+</div>
+
+<main class="wrap">
+  <details class="sim-sec reminder-lab" open>
+    <summary>小源主动提醒 · 仿真演练</summary>
+    <p class="sp-tip">所有主动提醒统一从这里演示：选择电站，再点击场景。APP 约 5 秒内显示提醒，重复点击可重新演示。策略、扩容与天气均为 Demo，不执行真实控制或下单。温升演练会改变模拟温度；新卡片持续保留到结束或重置，不受加速影响。</p>
+    <div class="reminder-lab-row"><label for="reminder-plant">演练电站</label><select id="reminder-plant"></select><button type="button" data-reminder-scenario="saving">省钱机会 · 谷充峰放</button><button type="button" data-reminder-scenario="monthly_report">上月运营报告</button><button type="button" data-reminder-scenario="storage_upgrade">增购储能建议</button><button type="button" data-reminder-scenario="weather_backup">天气风险 · 提高备用电</button><button type="button" data-reminder-scenario="heat">电池温升提醒</button><button type="button" data-reminder-scenario="inverter_heat">逆变器过热风险</button><button type="button" data-reminder-scenario="typhoon">台风预警演练</button><button type="button" data-reminder-scenario="clear">结束所选电站全部演练</button><button type="button" id="reminder-reset">重置全部演示提醒</button></div>
+    <p class="sp-tip">重置全部：结束所有电站的演练，并收起当前所有提醒气泡（包含月报）；历史报告保留。后续新事件仍会正常提醒。</p>
+    <p id="reminder-lab-status" class="sp-tip" role="status"></p>
+  </details>
+  <!-- ================= 电站列表 ================= -->
+  <div class="sim-view" id="view-list">
+    <div class="sp-bar">
+      <span class="sp-bar-t">我的仿真电站 <em id="sp-count">0</em></span>
+      <span class="sp-add" onclick="openCreate()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>创建电站
+      </span>
+    </div>
+    <div class="sp-list" id="sp-list"></div>
+    <div class="sp-tip">点击电站卡片进入仿真详情，可调节云量、负载与储能策略。新建的电站会立即并网运行，并同步出现在 APP 监控页的电站列表中。</div>
+  </div>
+
+  <!-- ================= 电站详情 ================= -->
+  <div class="sim-view" id="view-detail" style="display:none">
+    <div class="sp-dhd">
+      <span class="sp-back" onclick="simBack()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg>全部电站
+      </span>
+      <span class="sp-dname" id="sp-dname">—</span>
+      <span class="sp-dcap" id="sp-dcap">—</span>
+      <span class="sp-edit-btn" onclick="editCurrent()">编辑参数</span>
+      <span class="sp-share-btn" onclick="sharePlant()">分享电站</span>
+    </div>
+
+    <div class="det-l">
+      <div class="sim-flow" id="sim-flow"></div>
+
+      <div class="sim-metrics">
+        <div class="sm"><div class="sv"><span id="m-pv">0.0</span><small>kW</small></div><div class="sl"><i class="bd" style="background:#30d158"></i>光伏发电</div></div>
+        <div class="sm"><div class="sv"><span id="m-load">0.0</span><small>kW</small></div><div class="sl"><i class="bd" style="background:#0a84ff"></i>负载用电</div></div>
+        <div class="sm"><div class="sv"><span id="m-bat">0.0</span><small>kW</small></div><div class="sl"><i class="bd" style="background:#ff9f0a"></i>储能 · <span id="m-soc">55</span>% SOC</div></div>
+        <div class="sm"><div class="sv"><span id="m-grid">0.0</span><small>kW</small></div><div class="sl"><i class="bd" style="background:#bf5af2"></i><span id="m-grid-t">电网取电</span></div></div>
+      </div>
+
+      <div class="sim-sec">
+        <div class="sim-sec-h"><b>运行参数</b><span id="r-local">—</span></div>
+        <div class="kv-grid">
+          <div><span>位置</span><b id="r-tz">—</b></div>
+          <div><span>逆变器温度</span><b id="r-inv-temp">—</b></div>
+          <div><span>电站类型</span><b id="r-type">—</b></div>
+          <div><span>商业模式</span><b id="r-mode">—</b></div>
+          <div><span>容配比（装机 / 逆变器）</span><b id="r-ratio">—</b></div>
+          <div><span>储能 SOC 工作区间</span><b id="r-soc">—</b></div>
+          <div><span>运行开始时间</span><b id="r-start">—</b></div>
+          <div style="grid-column:1 / -1"><span>电价</span><b id="r-tariff">—</b></div>
+        </div>
+      </div>
+
+      <div class="sim-sec">
+        <div class="sim-sec-h"><b>今日运行</b><span id="sim-eff">自用率 --</span></div>
+        <div class="sim-metrics" style="grid-template-columns:1fr 1fr 1fr 1fr">
+          <div class="sm" style="padding:8px 10px"><div class="sv" style="font-size:15px"><span id="d-pv">0</span><small>kWh</small></div><div class="sl">光伏发电量</div></div>
+          <div class="sm" style="padding:8px 10px"><div class="sv" style="font-size:15px"><span id="d-load">0</span><small>kWh</small></div><div class="sl">用电量</div></div>
+          <div class="sm" style="padding:8px 10px"><div class="sv" style="font-size:15px"><span id="d-grid">0</span><small>kWh</small></div><div class="sl">电网取电</div></div>
+          <div class="sm" style="padding:8px 10px"><div class="sv" style="font-size:15px;color:#ffd60a"><span id="d-rev">0</span></div><div class="sl">今日收益</div></div>
+        </div>
+      </div>
+
+
+      <div class="sim-sec">
+        <div class="sim-sec-h"><b>仿真事件</b><span id="sim-evn">0 条</span></div>
+        <div class="sim-log" id="sim-log"><div class="log-item" style="color:#5f6675"><span class="ld" style="background:#3a7afe"></span>等待仿真数据…</div></div>
+      </div>
+    </div>
+
+    <div class="det-r">
+      <div class="sim-sec">
+        <div class="sim-sec-h"><b>环境与负载</b><span>可拖动调节</span></div>
+        <div style="margin-bottom:11px">
+          <div class="sim-lab"><span>云量遮挡</span><span id="v-cloud">25%</span></div>
+          <input class="sim-range" id="r-cloud" type="range" min="0" max="100" value="25" oninput="simSetCloud(this.value)">
+        </div>
+        <div>
+          <div class="sim-lab"><span>负载倍率</span><span id="v-load">100%</span></div>
+          <input class="sim-range" id="r-load" type="range" min="50" max="150" value="100" oninput="simSetLoad(this.value)">
+        </div>
+      </div>
+
+      <div class="sim-sec">
+        <div class="sim-sec-h"><b>储能调度策略</b><span id="v-batmode">自动</span></div>
+        <div class="sim-seg" id="seg-bat">
+          <span class="on" data-m="auto" onclick="simSetBat('auto')">自动</span>
+          <span data-m="charge" onclick="simSetBat('charge')">强制充电</span>
+          <span data-m="discharge" onclick="simSetBat('discharge')">强制放电</span>
+          <span data-m="idle" onclick="simSetBat('idle')">待机</span>
+        </div>
+        <div class="sim-switch" style="margin-top:13px">
+          <span>并网点停电演练（离网）</span>
+          <span class="tg" id="tg-grid" onclick="simToggleGrid()"></span>
+        </div>
+      </div>
+
+      <div class="sim-sec">
+        <div class="sim-sec-h"><b>实时功率曲线</b><span>光伏 / 负载 / 储能 / 电网</span></div>
+        <div class="sim-chart" id="sim-chart"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 创建电站 ================= -->
+  <div class="sim-view" id="view-create" style="display:none">
+    <div class="sp-dhd">
+      <span class="sp-back" onclick="simBack()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg>取消
+      </span>
+      <span class="sp-dname" id="cf-title">创建仿真电站</span>
+      <span class="sp-dcap" id="cf-tag">新建</span>
+    </div>
+
+    <div class="sim-sec">
+      <div class="sim-sec-h"><b>电站信息</b><span id="cf-tzinfo">—</span></div>
+      <div class="cf-grid">
+        <div>
+          <label class="cf-lab">电站名称</label>
+          <input class="cf-inp" id="cf-name" placeholder="留空则按城市自动命名" maxlength="20" autocomplete="off">
+        </div>
+        <div>
+          <label class="cf-lab">国家 / 地区</label>
+          <div class="cf-selwrap">
+            <select class="cf-inp cf-sel" id="cf-country" onchange="cfCountryChanged(true)"></select>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="#8b91a0"><path d="M7 10l5 6 5-6H7z"/></svg>
+          </div>
+        </div>
+        <div>
+          <label class="cf-lab">城市<em>随国家联动，可输入</em></label>
+          <input class="cf-inp" id="cf-city" list="cf-city-list" placeholder="选择或输入城市" maxlength="24" autocomplete="off">
+          <datalist id="cf-city-list"></datalist>
+        </div>
+        <div>
+          <label class="cf-lab">电站类型</label>
+          <div class="cf-selwrap">
+            <select class="cf-inp cf-sel" id="cf-type" onchange="cfPreview()">
+              <option value="ci">工商业</option>
+              <option value="res">户用</option>
+            </select>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="#8b91a0"><path d="M7 10l5 6 5-6H7z"/></svg>
+          </div>
+        </div>
+        <div>
+          <label class="cf-lab">商业模式</label>
+          <div class="cf-selwrap">
+            <select class="cf-inp cf-sel" id="cf-mode">
+              <option value="surplus">自发自用余电上网</option>
+              <option value="self">全自发自用</option>
+            </select>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="#8b91a0"><path d="M7 10l5 6 5-6H7z"/></svg>
+          </div>
+        </div>
+        <div style="grid-column:1 / -1">
+          <label class="cf-lab">运行开始时间<em>按电站所在国家当地时间</em></label>
+          <div class="cf-time">
+            <div class="cf-selwrap">
+              <select class="cf-inp cf-sel" id="cf-start-mo" onchange="cfStartChanged()"></select>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="#8b91a0"><path d="M7 10l5 6 5-6H7z"/></svg>
+            </div>
+            <div class="cf-selwrap">
+              <select class="cf-inp cf-sel" id="cf-start-dd" onchange="cfStartChanged()"></select>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="#8b91a0"><path d="M7 10l5 6 5-6H7z"/></svg>
+            </div>
+            <div class="cf-selwrap">
+              <select class="cf-inp cf-sel" id="cf-start-hh" onchange="cfStartChanged()"></select>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="#8b91a0"><path d="M7 10l5 6 5-6H7z"/></svg>
+            </div>
+          </div>
+          <label class="cf-check"><input type="checkbox" id="cf-start-apply" checked> 保存后让仿真时钟直接切到该时刻（便于回看某一天/某一时段）</label>
+          <div class="sp-tip" style="margin-top:6px">月 / 日 / 时按当地时间选择；不勾选则只记录为运行开始时间，时钟保持当前进度。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sim-sec">
+      <div class="sim-sec-h"><b>设备容量</b><span>容配比 = 光伏装机 ÷ 逆变器交流功率</span></div>
+      <div class="cf-grid">
+        <div>
+          <label class="cf-lab">光伏逆变器最大交流功率<em>kW</em></label>
+          <input class="cf-inp" id="cf-inv" type="number" min="1" max="100000" step="1" value="100" oninput="cfPreview()">
+        </div>
+        <div>
+          <label class="cf-lab">容配比<em>1 &lt; 值 &lt; 10</em></label>
+          <input class="cf-inp" id="cf-ratio" type="number" min="1.01" max="9.99" step="0.01" value="1.2" oninput="cfPreview()">
+        </div>
+        <div>
+          <label class="cf-lab">储能最大充放电功率<em>kW</em></label>
+          <input class="cf-inp" id="cf-batp" type="number" min="1" max="100000" step="1" value="100" oninput="cfPreview()">
+        </div>
+        <div>
+          <label class="cf-lab">充放电小时数<em>h</em></label>
+          <input class="cf-inp" id="cf-bath" type="number" min="0.5" max="24" step="0.5" value="2" oninput="cfPreview()">
+        </div>
+        <div>
+          <label class="cf-lab">SOC 放电下限<em>%</em></label>
+          <input class="cf-inp" id="cf-socmin" type="number" min="0" max="90" step="1" value="10" oninput="cfPreview()">
+        </div>
+        <div>
+          <label class="cf-lab">SOC 充电上限<em>%</em></label>
+          <input class="cf-inp" id="cf-socmax" type="number" min="10" max="100" step="1" value="98" oninput="cfPreview()">
+        </div>
+      </div>
+      <div class="cf-preview">
+        <div><span>光伏装机</span><b id="cf-pv">120.0 kWp</b></div>
+        <div><span>储能容量</span><b id="cf-batkwh">200 kWh</b></div>
+        <div><span>负载峰值</span><b id="cf-load">70 kW</b></div>
+        <div><span>可用 SOC 区间</span><b id="cf-socrange">10% – 98%</b></div>
+        <div><span>年发电量估算</span><b id="cf-yearpv">—</b></div>
+      </div>
+      <div class="sp-tip" style="margin-top:9px">光伏装机 = 逆变器最大交流功率 × 容配比；储能容量 = 充放电功率 × 小时数；负载峰值按逆变器 ×0.7 估算。光伏输出按所选地点的纬度、日期、时刻与天气逐分钟计算。</div>
+    </div>
+
+    <div class="sim-sec">
+      <div class="sim-sec-h"><b>电价设置</b><span id="cf-curname">¥ CNY</span></div>
+      <div class="cf-grid">
+        <div>
+          <label class="cf-lab">上网电价<em id="cf-fitunit">每 kWh</em></label>
+          <div class="cf-money"><span id="cf-fitsym">¥</span><input class="cf-inp" id="cf-fit" type="number" min="0" step="0.001" value="0.35" oninput="cfPreview()"></div>
+        </div>
+        <div>
+          <label class="cf-lab">买电电价<em id="cf-retunit">每 kWh</em></label>
+          <div class="cf-money"><span id="cf-retsym">¥</span><input class="cf-inp" id="cf-retail" type="number" min="0" step="0.001" value="0.62" oninput="cfPreview()"></div>
+        </div>
+      </div>
+      <div class="sp-tip" style="margin-top:9px">货币单位随所选国家自动切换，默认电价为该国的典型参考值，可自行修改。收益 = 自用电量 × 买电电价 + 上网电量 × 上网电价。</div>
+    </div>
+
+    <div class="sim-sec">
+      <div class="sim-sec-h"><b>负载功率曲线</b><span id="load-badge">未加载文件</span></div>
+      <label class="cf-radio"><input type="radio" name="cf-loadmode" id="cf-loadmode-builtin" value="builtin" checked> 内置典型曲线（按电站类型自动生成）</label>
+      <label class="cf-radio"><input type="radio" name="cf-loadmode" id="cf-loadmode-file" value="file"> 上传的负载曲线（365 天 × 1440 分钟）</label>
+      <div class="cf-up">
+        <label class="cf-upbtn" for="cf-loadfile">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M12 16V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 16v3.5h16V16"/></svg>
+          选择 Excel / CSV
+        </label>
+        <input id="cf-loadfile" type="file" accept=".xlsx,.xls,.csv,.txt" onchange="onLoadFilePicked(this)" hidden>
+        <span class="cf-uplink" onclick="downloadLoadTemplate()">下载模板</span>
+        <span class="cf-uplink" onclick="resetLoadFile()">清除</span>
+      </div>
+      <div class="cf-loadstate" id="cf-loadstate">未加载文件，将使用内置典型曲线</div>
+      <div class="sp-tip">支持三种格式：① 一天一行 × 1440 列（首列为日期，推荐用模板）；② 三列「日期 / 时间 / 功率」；③ 单列顺序排列。上传后缓存在浏览器本地，刷新页面不丢失。</div>
+    </div>
+
+    <div class="cf-err" id="cf-err"></div>
+    <button class="cf-submit" id="cf-submit" onclick="createPlant()">创建并开始运行</button>
+  </div>
+</main>
+
+<section class="wrap manager-history" aria-label="历史每日发电量曲线">
+  <div class="sim-sec">
+    <div class="mh-head"><h2>近 90 天每日发电量</h2><button type="button" id="mh-refresh">刷新历史数据</button></div>
+    <p class="sp-tip" id="mh-range" role="status">正在加载历史仿真数据…</p>
+    <div class="mh-picker"><label for="mh-date">查看某一天</label><input type="date" id="mh-date"><div id="mh-day"></div></div>
+    <div id="mh-charts" class="mh-charts"></div>
+    <details class="mh-table-wrap"><summary>展开逐日发电量明细</summary><div id="mh-table"></div></details>
+  </div>
+</section>
+
+<footer class="foot-note">
+  <b>数据链路：</b>管理页运行仿真并发布到服务端，APP 使用端可在其他设备独立查看。配置和最新快照持久保存。关闭或休眠管理页后仿真暂停，APP 会显示最后快照与停更提示。
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="js/workspace-client.js"></script>
+<script src="js/simulator.js"></script>
+<script src="js/manager-bridge.js"></script>
+<script src="js/manager-history.js"></script>
+</body>
+</html>

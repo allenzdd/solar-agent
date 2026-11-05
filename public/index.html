@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<base href="/">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="js/theme.js"></script>
+<link rel="stylesheet" href="css/theme.css">
+<title>FusionSolar 仿真模拟</title>
+<link rel="stylesheet" href="css/monitor.css?v=20261105-excel-card">
+<link rel="stylesheet" href="css/reminders.css">
+<link rel="stylesheet" href="css/subscriptions.css">
+<link rel="stylesheet" href="css/strategies.css">
+<link rel="stylesheet" href="css/multimodal.css">
+<link rel="stylesheet" href="css/human-support.css">
+<link rel="stylesheet" href="css/health.css">
+<link rel="stylesheet" href="css/commissioning.css">
+</head>
+<body>
+
+<div class="phone-slot" id="phone-slot"><div class="phone">
+  <div class="screen">
+    <div class="dynamic-island"></div>
+    <div class="statusbar">
+      <span id="sb-time">11:32</span>
+    </div>
+
+    <!-- ================= 首页(电站) ================= -->
+    <div class="page active" id="page-home">
+      <div class="seg-row"><span class="seg" id="seg-st" onclick="switchHome('st')">电站</span><span class="seg dim" id="seg-stat" onclick="switchHome('stat')">统计</span></div>
+      <button type="button" class="more-grid app-menu-trigger" id="app-menu-trigger" onclick="toggleAppMenu()" aria-label="更多操作" aria-haspopup="menu" aria-expanded="false" aria-controls="app-more-menu"><svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" aria-hidden="true"><circle cx="4" cy="4" r="1.8"/><circle cx="14" cy="4" r="1.8"/><circle cx="4" cy="9" r="1.8"/><circle cx="14" cy="9" r="1.8"/><circle cx="4" cy="14" r="1.8"/><circle cx="14" cy="14" r="1.8"/></svg></button>
+      <nav class="app-more-menu" id="app-more-menu" role="menu" aria-label="更多操作" hidden>
+        <a href="#reminders" id="xr-history" role="menuitem"><span aria-hidden="true">✦</span><span>小源提醒记录</span><span aria-hidden="true">›</span></a>
+        <a href="/manage/" target="solar-manager" rel="noopener" role="menuitem" onclick="closeAppMenu()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m13 2-9 12h7l-1 8 10-13h-7z"/></svg><span>进入电站仿真管理</span><span aria-hidden="true">↗</span></a>
+      </nav>
+
+      <div id="home-station">
+      <div class="topbar-actions"><span class="act">电站实时监控</span></div>
+      <div class="chip-row">
+        <div class="chip on" data-f="all"><div class="n">0</div><div class="t">全部</div></div>
+        <div class="chip" data-f="ok"><div class="n green">0</div><div class="t">正常</div></div>
+        <div class="chip" data-f="fault"><div class="n red">0</div><div class="t">故障</div></div>
+        <div class="chip" data-f="off"><div class="n">0</div><div class="t">断连</div></div>
+      </div>
+      <div class="searchbar">
+        <div class="search">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6c6c70" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>
+          <input id="st-search" placeholder="请输入电站名称" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="renderStations()">
+          <span class="in-ic" onclick="openPicker()" title="选择电站"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3a7afe" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3.5" width="15" height="5.5" rx="1.6"/><path d="M12 9v3M5 12.5h14"/><path d="M5 12.5v2.5M12 12.5v2.5M19 12.5v2.5"/><rect x="2.8" y="15" width="4.6" height="5" rx="1.4"/><rect x="9.7" y="15" width="4.6" height="5" rx="1.4"/><rect x="16.6" y="15" width="4.6" height="5" rx="1.4"/></svg></span>
+        </div>
+        <span class="filter-btn" id="st-filter-btn" onclick="openFilter()"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16l-6.5 8v6l-3-1.8V13L4 5z"/></svg></span>
+      </div>
+      <div id="bridge-tip" class="bridge-tip" style="display:none"></div>
+      <div id="station-list"></div>
+      <div style="height:8px"></div>
+      </div>
+
+      <div id="home-stat" style="display:none">
+        <div class="stat-grid">
+          <div class="card stat-k"><div class="v" id="k-power">0.00 <i>kW</i></div><div class="l">当前功率</div></div>
+          <div class="card stat-k"><div class="v" id="k-day">165.40 <i>度</i></div><div class="l">当日发电量</div></div>
+          <div class="card stat-k"><div class="v" id="k-rev">0.00 <i>元</i></div><div class="l">当日收益</div></div>
+          <div class="card stat-k"><div class="v" id="k-total">1.43 <i>万度</i></div><div class="l">累计发电量</div></div>
+        </div>
+        <div class="card stat-chart">
+          <div class="sc-title">实时功率<span class="live-badge">LIVE</span></div>
+          <div class="legend" style="gap:14px;margin-bottom:4px">
+            <span style="display:flex;align-items:center;gap:5px"><i class="ldot" style="background:#30d158"></i>光伏</span>
+            <span style="display:flex;align-items:center;gap:5px"><i class="ldot" style="background:#0a84ff"></i>负载</span>
+            <span style="display:flex;align-items:center;gap:5px"><i class="ldot" style="background:#ff9f0a"></i>储能</span>
+            <span style="display:flex;align-items:center;gap:5px"><i class="ldot" style="background:#bf5af2"></i>电网</span>
+          </div>
+          <div id="live-chart"></div>
+          <div style="color:#5f6675;font-size:11.5px;margin-top:2px">数据来自光储仿真台 · 每 1 秒刷新</div>
+        </div>
+        <div class="card stat-chart">
+          <div class="sc-title">发电量统计</div>
+          <div class="seg-pills" id="stat-seg">
+            <span class="on" data-m="day" onclick="setStatMode('day')">日</span>
+            <span data-m="month" onclick="setStatMode('month')">月</span>
+            <span data-m="year" onclick="setStatMode('year')">年</span>
+            <span data-m="life" onclick="setStatMode('life')">生命期</span>
+          </div>
+          <div class="date-row">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="2" onclick="statShift(-1)" style="cursor:pointer"><path d="m14.5 5.5-6.5 6.5 6.5 6.5"/></svg>
+            <span id="stat-date" onclick="toast('选择日期')">2026/11/01 <svg width="11" height="11" viewBox="0 0 24 24" fill="#c8c8d0"><path d="M7 10l5 6 5-6H7z"/></svg></span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="2" onclick="statShift(1)" style="cursor:pointer"><path d="m9.5 5.5 6.5 6.5-6.5 6.5"/></svg>
+          </div>
+          <div class="legend"><span class="ldot"></span>发电量</div>
+          <div id="stat-bars"></div>
+        </div>
+        <div class="card stat-rank">
+          <div class="sc-title">当日电站排名</div>
+          <div id="rank-list"></div>
+        </div>
+        <div class="card stat-social">
+          <div class="sc-title">社会贡献</div>
+          <div class="soc-grid">
+            <div class="soc" style="background:linear-gradient(180deg,#26303f,#131a26)">
+              <div class="v">9.70 <i>吨</i></div><div class="sl">节约标准煤</div>
+              <svg viewBox="0 0 100 44" preserveAspectRatio="xMidYMax slice"><path d="M0 44 V30 h22 v-6 h10 l6 6 h20 l8 8 h34" fill="none" stroke="#5a4632" stroke-width="7"/><path d="M52 22 l24 10" stroke="#8a6a45" stroke-width="3"/><circle cx="30" cy="20" r="4" fill="#8a6a45"/></svg>
+            </div>
+            <div class="soc" style="background:linear-gradient(180deg,#2a3138,#161a20)">
+              <div class="v">11.52 <i>吨</i></div><div class="sl">CO₂减排量</div>
+              <svg viewBox="0 0 100 44" preserveAspectRatio="xMidYMax slice"><rect x="18" y="16" width="12" height="28" fill="#3c4450"/><rect x="46" y="10" width="14" height="34" fill="#4a5563"/><ellipse cx="52" cy="8" rx="16" ry="7" fill="#5d6875" opacity=".85"/><ellipse cx="70" cy="14" rx="12" ry="5" fill="#5d6875" opacity=".6"/></svg>
+            </div>
+            <div class="soc" style="background:linear-gradient(180deg,#1d2f2b,#12201d)">
+              <div class="v">20 <i>棵</i></div><div class="sl">等效植树量</div>
+              <svg viewBox="0 0 100 44" preserveAspectRatio="xMidYMax slice"><path d="M18 44 V30 M10 34 18 20 26 34 Z M34 44 V26 M26 32 34 16 42 32 Z M52 44 V30 M44 36 52 22 60 36 Z" fill="#2e5c46" stroke="#2e5c46" stroke-width="3"/></svg>
+            </div>
+          </div>
+        </div>
+        <div style="height:8px"></div>
+      </div>
+    </div>
+
+    <!-- ================= 运维(告警) ================= -->
+    <div class="page" id="page-ops">
+      <div class="seg-row"><span class="seg">告警</span><span class="seg dim" onclick="toast('已切换到任务视图')">任务</span></div>
+      <div class="donut-wrap">
+        <div class="donut">
+          <svg viewBox="0 0 104 104">
+            <circle cx="52" cy="52" r="44" fill="none" stroke="#2c2c2e" stroke-width="8"/>
+            <g id="donut-segs"></g>
+          </svg>
+          <div class="c"><span class="n" id="donut-total">18</span><span class="t">总数</span></div>
+        </div>
+        <div class="alarm-counts">
+          <div class="ac"><div class="n" id="ac-crit">0</div><div class="l"><span class="pdot" style="background:#ff453a"></span>紧急</div></div>
+          <div class="ac"><div class="n" id="ac-imp">15</div><div class="l"><span class="pdot" style="background:#ff9f0a"></span>重要</div></div>
+          <div class="ac"><div class="n" id="ac-minor">1</div><div class="l"><span class="pdot" style="background:#ffd60a"></span>次要</div></div>
+          <div class="ac"><div class="n" id="ac-hint">2</div><div class="l"><span class="pdot" style="background:#0a84ff"></span>提示</div></div>
+        </div>
+      </div>
+      <div class="searchbar">
+        <div class="search">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6c6c70" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>
+          <input id="op-search" placeholder="请输入告警名称" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="renderAlarms()">
+          <span class="in-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3a7afe" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3.5" width="15" height="5.5" rx="1.6"/><path d="M12 9v3M5 12.5h14"/><path d="M5 12.5v2.5M12 12.5v2.5M19 12.5v2.5"/><rect x="2.8" y="15" width="4.6" height="5" rx="1.4"/><rect x="9.7" y="15" width="4.6" height="5" rx="1.4"/><rect x="16.6" y="15" width="4.6" height="5" rx="1.4"/></svg></span>
+        </div>
+        <span class="filter-btn"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M4 5h16l-6.5 8v6l-3-1.8V13L4 5z"/></svg></span>
+      </div>
+      <div id="alarm-list"></div>
+      <div style="height:8px"></div>
+    </div>
+
+    <!-- ================= 设备 ================= -->
+    <div class="page" id="page-dev">
+      <div class="pg-title">设备</div>
+      <div class="dev-toolbar">
+        <span class="name-sort" id="dev-sort-btn" onclick="toggleSortMenu(event)">名称 <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M7 10l5 6 5-6H7z"/></svg></span>
+        <div class="sort-menu" id="sort-menu">
+          <div class="sort-item on" data-sort="name" onclick="setSort('name',event)"><span>名称</span><svg class="ck" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6f9dff" stroke-width="2.4"><path d="m5 12.5 4.5 4.5L19 6.5"/></svg></div>
+          <div class="sort-item" data-sort="sn" onclick="setSort('sn',event)"><span>SN 号</span><svg class="ck" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6f9dff" stroke-width="2.4"><path d="m5 12.5 4.5 4.5L19 6.5"/></svg></div>
+        </div>
+        <div class="search" style="flex:1">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6c6c70" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>
+          <input id="dev-search" placeholder="请输入设备名称" autocomplete="off" oninput="renderDevices()">
+          <span class="in-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3a7afe" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3.5" width="15" height="5.5" rx="1.6"/><path d="M12 9v3M5 12.5h14"/><path d="M5 12.5v2.5M12 12.5v2.5M19 12.5v2.5"/><rect x="2.8" y="15" width="4.6" height="5" rx="1.4"/><rect x="9.7" y="15" width="4.6" height="5" rx="1.4"/><rect x="16.6" y="15" width="4.6" height="5" rx="1.4"/></svg></span>
+        </div>
+        <span class="filter-btn"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M4 5h16l-6.5 8v6l-3-1.8V13L4 5z"/></svg></span>
+      </div>
+      <div id="dev-list"></div>
+      <div style="height:8px"></div>
+    </div>
+
+    <!-- ================= 服务 ================= -->
+    <div class="page" id="page-svc">
+      <div class="pg-title">服务</div>
+      <div class="grp-label">常用应用</div>
+      <div class="card grid-card">
+        <div class="gitem" onclick="toast('设备调测')">
+          <span class="gicon" style="background:rgba(48,209,88,.14)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="1.8"><path d="M14.5 6.5 17 4a3.5 3.5 0 0 1 4 4l-3.5 3.5M9.5 17.5 7 20a3.5 3.5 0 0 1-4-4L6.5 12.5"/><path d="M13 8 8 13l3 3 5-5-3-3z"/></svg></span>设备调测
+        </div>
+        <div class="gitem" onclick="toast('电站升级')">
+          <span class="gicon" style="background:rgba(48,209,88,.14)"><span class="badge"></span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 15.5v-7M8.8 11.2 12 8l3.2 3.2"/></svg></span>电站升级
+        </div>
+      </div>
+      <div class="grp-label">资料中心</div>
+      <div class="card grid-card">
+        <div class="gitem" onclick="toast('视频教学')">
+          <span class="gicon" style="background:rgba(48,209,88,.14)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="1.8"><rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="m10.5 9.5 4 2.5-4 2.5v-5z" fill="#30d158" stroke="none"/></svg></span>视频教学
+        </div>
+        <div class="gitem" onclick="toast('售后资料')">
+          <span class="gicon" style="background:rgba(48,209,88,.14)"><span class="badge"></span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="1.8"><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M9 8.5h6M9 12h6M12 20.5v-4"/></svg></span>售后资料
+        </div>
+        <div class="gitem" onclick="toast('光伏官网')">
+          <span class="gicon" style="background:rgba(48,209,88,.14)"><span class="badge"></span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M4 12h16M12 3.5c2.5 2.3 3.8 5.2 3.8 8.5s-1.3 6.2-3.8 8.5c-2.5-2.3-3.8-5.2-3.8-8.5s1.3-6.2 3.8-8.5z"/></svg></span>光伏官网
+        </div>
+      </div>
+      <div class="grp-label">帮助与反馈</div>
+      <div class="card grid-card">
+        <div class="gitem" onclick="toast('智能客服')">
+          <span class="gicon" style="background:rgba(10,132,255,.16)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0a84ff" stroke-width="1.8"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H12l-4.5 3.5V16h-1A2.5 2.5 0 0 1 4 13.5v-7z"/><path d="M8 9h8M8 12h5"/></svg></span>智能客服
+        </div>
+        <div class="gitem" onclick="toast('意见反馈')">
+          <span class="gicon" style="background:rgba(10,132,255,.16)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0a84ff" stroke-width="1.8"><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M9 8h6M9 11.5h6M9 15h3.5"/><path d="m14.5 18.5 2 2 3.5-4" stroke-width="1.7"/></svg></span>意见反馈
+        </div>
+        <div class="gitem" onclick="toast('联系我们')">
+          <span class="gicon" style="background:rgba(10,132,255,.16)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0a84ff" stroke-width="1.8"><path d="M7 3.8 9.2 3c.5-.2 1 .1 1.2.5l1.2 2.8c.2.4 0 .9-.3 1.2L9.9 8.6a12.5 12.5 0 0 0 5.5 5.5l1.1-1.4c.3-.4.8-.5 1.2-.3l2.8 1.2c.5.2.7.7.5 1.2l-.8 2.2c-.2.5-.7.9-1.2.9C11.5 17.9 6.1 12.5 6.1 5c0-.5.4-1 .9-1.2z"/></svg></span>联系我们
+        </div>
+      </div>
+      <div style="height:20px"></div>
+    </div>
+
+    <!-- ================= 我的 ================= -->
+    <div class="page" id="page-me">
+      <div class="pg-title">我的</div>
+      <div style="height:8px"></div>
+      <div class="card profile" onclick="toast('个人信息')">
+        <div class="avatar">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="rgba(255,255,255,.9)"><circle cx="12" cy="8.5" r="4"/><path d="M4 20c.9-4 4.2-6 8-6s7.1 2 8 6H4z"/></svg>
+        </div>
+        <div><div class="nm">共享电站账户</div><div class="ph">使用端</div></div>
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 5 7 7-7 7"/></svg>
+      </div>
+      <div style="height:14px"></div>
+      <div class="card group">
+        <div class="list-item" onclick="toast('消息中心')">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c8c8d0" stroke-width="1.7"><path d="M12 3.5a7.5 7.5 0 0 1 7.5 7.5v3.2l1.3 2.8H3.2l1.3-2.8V11A7.5 7.5 0 0 1 12 3.5z"/><path d="M9.8 20a2.3 2.3 0 0 0 4.4 0"/></svg>消息中心<span class="nbadge">19</span><svg class="chev" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:10px"><path d="m9 5 7 7-7 7"/></svg>
+        </div>
+      </div>
+      <div style="height:14px"></div>
+      <div class="card group">
+        <div class="list-item" onclick="toast('用户管理')">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c8c8d0" stroke-width="1.7"><circle cx="10" cy="8" r="3.4"/><path d="M4 20c.8-3.6 3.2-5.4 6-5.4s5.2 1.8 6 5.4"/><path d="M18.5 6v6M15.5 9h6"/></svg>用户管理<svg class="chev" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 5 7 7-7 7"/></svg>
+        </div>
+        <div class="list-item" onclick="toast('企业信息')">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c8c8d0" stroke-width="1.7"><rect x="5" y="4" width="14" height="16" rx="1.5"/><path d="M9 8h2M13 8h2M9 12h2M13 12h2M10.5 20v-4h3v4"/></svg>企业信息<svg class="chev" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 5 7 7-7 7"/></svg>
+        </div>
+      </div>
+      <div style="height:14px"></div>
+      <div class="card group">
+        <div class="list-item" onclick="toast('关于')">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c8c8d0" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 7.8v.4"/></svg>关于<svg class="chev" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 5 7 7-7 7"/></svg>
+        </div>
+      </div>
+      <div style="height:14px"></div>
+      <div class="card group">
+        <div class="list-item" onclick="openSetPage()">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c8c8d0" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><path d="M19 12a7 7 0 0 0-.15-1.4l2-1.55-2-3.46-2.35.95a7 7 0 0 0-2.4-1.4L13.7 2.5h-3.4l-.4 2.64a7 7 0 0 0-2.4 1.4l-2.35-.95-2 3.46 2 1.55A7 7 0 0 0 5 12c0 .48.05.94.15 1.4l-2 1.55 2 3.46 2.35-.95a7 7 0 0 0 2.4 1.4l.4 2.64h3.4l.4-2.64a7 7 0 0 0 2.4-1.4l2.35.95 2-3.46-2-1.55c.1-.46.15-.92.15-1.4z"/></svg>设置<span class="reddot"></span><svg class="chev" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:10px"><path d="m9 5 7 7-7 7"/></svg>
+        </div>
+      </div>
+      <div style="height:20px"></div>
+    </div>
+
+    <!-- ================= 小源 AI ================= -->
+    <div class="xiaoyuan" id="xiaoyuan">
+      <div class="xy-top">
+        <span class="bk" onclick="closeXY()"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></span>
+        <span class="ti">华为小源</span>
+        <button type="button" class="xy-new-chat" onclick="newChat()" title="新对话" aria-label="新对话"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-7"/><path d="m16 3 5 5-9 9-6 1 1-6z"/></svg></button>
+      </div>
+      <div class="xy-intro" id="xy-intro">
+        <div class="xy-hero">
+          <div class="orb"><span class="xy-ball-art" data-xyart></span></div>
+          <div class="hi">Hi, 我是华为小源</div>
+          <div class="sub" id="xy-sub">可查询账号下的电站、告警与设备</div>
+        </div>
+        <div class="xy-sugs" id="xy-sugs"></div>
+        <div class="xy-refresh" onclick="refreshSugs()">换一批</div>
+      </div>
+      <div class="xy-chat" id="xy-chat"></div>
+      <div class="xy-bottom">
+        <div class="xy-input-wrap xy-iw" id="xy-iw">
+          <div class="xy-rec" id="xy-rec" aria-live="polite">
+            <div class="xy-wave" id="xy-wave"></div>
+            <div class="xy-rec-t" id="xy-rec-t">正在聆听…松开结束</div>
+            <div class="xy-rec-txt" id="xy-rec-txt"></div>
+          </div>
+          <div class="xy-attach" id="xy-attach"></div>
+          <div class="xy-input-row">
+            <button type="button" class="xy-tool" id="xy-img" onclick="pickImage()" title="添加附件" aria-label="添加附件"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+            <input id="xy-input" placeholder="发消息…" aria-label="输入问题" autocomplete="off" enterkeyhint="send">
+            <div class="xy-voice-hold" id="xy-hold"><span id="xy-hold-t">按住说话</span></div>
+            <button type="button" class="xy-tool" id="xy-mic" onclick="toggleVoice()" title="语音输入" aria-label="语音输入" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6"/></svg></button>
+            <button type="button" class="xy-tool send" id="xy-send" onclick="sendMsg()" title="发送" aria-label="发送"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
+          </div>
+        </div>
+        <input type="file" id="file-cam" accept="image/*" capture="environment" style="display:none">
+        <input type="file" id="file-production" accept=".xlsx" style="display:none">
+        <input type="file" id="file-gal" accept="image/*,video/*" multiple style="display:none">
+      </div>
+    </div>
+
+    <!-- ================= 选择电站页 ================= -->
+    <div class="picker" id="picker">
+      <div class="pk-top">
+        <span class="bk" onclick="closePicker()"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></span>
+        <span class="ti">选择电站</span>
+      </div>
+      <div class="search pk-search">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6c6c70" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>
+        <input id="pk-search" placeholder="请输入电站名称" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="renderPickList()">
+      </div>
+      <div class="pk-list" id="pk-list"></div>
+      <div class="pk-bottom">
+        <button class="btn ghost" onclick="closePicker()">取消</button>
+        <button class="btn primary" onclick="confirmPick()">确定</button>
+      </div>
+    </div>
+
+    <!-- ================= 设置页（我的 → 设置） ================= -->
+    <div class="picker" id="page-settings">
+      <div class="pk-top">
+        <span class="bk" onclick="closeSetPage()"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></span>
+        <span class="ti">设置</span>
+      </div>
+      <div class="set-list">
+        <div class="set-row" onclick="openSettings()">大语言模型<span class="sv"><span id="set-llm-val">云服务模型</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a5a5e" stroke-width="2"><path d="m9 5 7 7-7 7"/></svg></span></div>
+        <div class="set-row" onclick="toast('多语言')">多语言<span class="sv">中文（简体）<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a5a5e" stroke-width="2"><path d="m9 5 7 7-7 7"/></svg></span></div>
+        <button type="button" class="set-row theme-trigger" id="theme-trigger" onclick="SolarTheme.open()" aria-expanded="false" aria-controls="theme-sheet">深色模式<span class="sv"><span id="theme-label">深色模式</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 5 7 7-7 7"/></svg></span></button>
+        <div class="set-row" onclick="toast('华为小源')">华为小源<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a5a5e" stroke-width="2" style="margin-left:auto"><path d="m9 5 7 7-7 7"/></svg></div>
+        <div class="set-row" onclick="toast('消息设置')">消息设置<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a5a5e" stroke-width="2" style="margin-left:auto"><path d="m9 5 7 7-7 7"/></svg></div>
+        <div class="set-row" onclick="toast('电站展示')">电站展示<span class="reddot"></span></div>
+        <div class="set-row" onclick="AppBridge.configureControl()">APP 控制权限<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a5a5e" stroke-width="2" style="margin-left:auto"><path d="m9 5 7 7-7 7"/></svg></div>
+        <div class="set-row" onclick="toast('权限管理')">权限管理<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a5a5e" stroke-width="2" style="margin-left:auto"><path d="m9 5 7 7-7 7"/></svg></div>
+        <div class="set-row" onclick="toast('应用服务设置')">应用服务设置<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a5a5e" stroke-width="2" style="margin-left:auto"><path d="m9 5 7 7-7 7"/></svg></div>
+        <button class="set-quit" onclick="toast('已退出登录（演示）')">退出登录</button>
+      </div>
+    </div>
+
+    <!-- 悬浮小源球 -->
+    <div class="xy-ball-fab" id="xy-ball"><span class="xy-ball-art" data-xyart></span></div>
+    <aside id="xy-reminder-float" class="xr-float" aria-label="小源主动提醒" hidden>
+      <div class="xr-heading"><span>✦ 小源提醒</span><button type="button" id="xr-open">去对话 <span id="xr-count"></span> ›</button></div>
+      <div id="xr-featured"></div>
+    </aside>
+
+    <!-- 电站详情页（点击首页电站卡弹出） -->
+    <div class="pdetail" id="plant-detail"></div>
+
+    <!-- 底部 Tab -->
+    <div class="tabbar">
+      <div class="tab active" data-p="home" onclick="go('home')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" color="#3a7afe"><path d="M3 11.2 12 3.5l9 7.7"/><path d="M5.3 9.8V20h13.4V9.8"/><path d="M9.8 20v-5.8h4.4V20"/></svg>
+        <span class="tlabel">首页</span>
+      </div>
+      <div class="tab" data-p="ops" onclick="go('ops')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" color="#8e8e93"><circle cx="12" cy="12" r="8.5"/><path d="m9 15 2.5-2.5M12.5 9 15 6.5M14.5 9.5c1 1 2.6.8 3.4 0M6.5 12.5c1 1 2.6.8 3.4 0" opacity="0"/><path d="m9.2 14.8-2.7 2.7M12.6 6.8l4.6 4.6-4.4 4.4-4.6-4.6 4.4-4.4z"/></svg>
+        <span class="tlabel">运维</span>
+      </div>
+      <div class="tab" data-p="dev" onclick="go('dev')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" color="#8e8e93"><rect x="4" y="4.5" width="16" height="6.5" rx="2"/><rect x="4" y="13.5" width="16" height="6.5" rx="2"/><path d="M7.5 7.8h.01M7.5 16.8h.01" stroke-linecap="round" stroke-width="2.4"/></svg>
+        <span class="tlabel">设备</span>
+      </div>
+      <div class="tab" data-p="svc" onclick="go('svc')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" color="#8e8e93"><rect x="4.5" y="4.5" width="6" height="6" rx="1.6"/><rect x="13.5" y="4.5" width="6" height="6" rx="1.6"/><rect x="4.5" y="13.5" width="6" height="6" rx="1.6"/><rect x="13.5" y="13.5" width="6" height="6" rx="1.6"/></svg>
+        <span class="tlabel">服务</span>
+      </div>
+      <div class="tab" data-p="me" onclick="go('me')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" color="#8e8e93"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20c.9-4 4.1-6 7.5-6s6.6 2 7.5 6"/></svg>
+        <span class="dot"></span>
+        <span class="tlabel">我的</span>
+      </div>
+    </div>
+
+    <!-- ===== 模型设置 ===== -->
+    <div class="sheet-mask" id="sheet-mask" onclick="closeSettings()"></div>
+    <div class="sheet" id="sheet">
+      <div class="sheet-head">
+        <span class="sheet-title">模型设置</span>
+        <span class="sheet-close" onclick="closeSettings()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+      </div>
+      <div class="sheet-label">默认模型</div><div class="model-pills" id="model-pills"><span class="mpill on" id="configured-model">deepseek-flash</span></div><div class="sheet-hint">已由应用配置，无需填写 API Key。支持文字与图片问答。</div><div class="sheet-actions"><button class="btn ghost" onclick="testModelConnection()">测试连接</button><button class="btn primary" onclick="closeSettings()">完成</button></div><div class="sheet-status" id="sheet-status"></div>
+    </div>
+
+<div class="sheet-mask" id="theme-mask" onclick="SolarTheme.close()"></div>
+    <section class="sheet" id="theme-sheet" aria-label="选择显示模式">
+      <div class="sheet-head"><span class="sheet-title">显示模式</span><button type="button" class="xy-new-chat" onclick="SolarTheme.close()" aria-label="关闭显示模式">✕</button></div>
+      <div class="theme-choices">
+        <button type="button" class="theme-choice" data-theme-choice="dark" onclick="SolarTheme.set('dark')" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20.5 13.4A8.7 8.7 0 0 1 10.6 3.5a8.8 8.8 0 1 0 9.9 9.9Z"/></svg>深色模式</button>
+        <button type="button" class="theme-choice" data-theme-choice="light" onclick="SolarTheme.set('light')" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5"/></svg>浅色模式</button>
+      </div>
+    </section>
+    <!-- ================= 筛选抽屉 ================= -->
+    <div class="sheet-mask" id="fmask" onclick="closeFilter()"></div>
+    <div class="sheet scrollable" id="fsheet">
+      <div class="sheet-head">
+        <span class="sheet-title">筛选</span>
+        <span class="sheet-close" onclick="closeFilter()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+      </div>
+      <div class="f-label">电站类型</div>
+      <div class="f-chips" data-k="type">
+        <span class="fchip on" data-v="all">全部</span><span class="fchip" data-v="户用">户用</span>
+        <span class="fchip" data-v="工商业">工商业</span><span class="fchip" data-v="地面电站">地面电站</span>
+      </div>
+      <div class="f-label">组串总容量</div>
+      <div class="f-chips" data-k="cap">
+        <span class="fchip on" data-v="all">全部</span><span class="fchip" data-v="0-10">0-10 kWp</span>
+        <span class="fchip" data-v="10-50">10-50 kWp</span><span class="fchip" data-v="50-100">50-100 kWp</span>
+        <span class="fchip" data-v="100-1000">100 kWp-1 MWp</span><span class="fchip" data-v="&gt;1000">&gt;1 MWp</span>
+      </div>
+      <div class="f-label">电站配置</div>
+      <div class="f-chips" data-k="cfg">
+        <span class="fchip on" data-v="all">全部</span><span class="fchip" data-v="储能">储能</span>
+        <span class="fchip" data-v="优化器">优化器</span><span class="fchip" data-v="充电桩">充电桩</span>
+        <span class="fchip" data-v="iSitePower-M">iSitePower-M</span>
+      </div>
+      <div class="f-label">并网时间</div>
+      <div class="f-row">
+        <input class="f-date" id="f-d1" type="date" placeholder="开始时间">
+        <span class="dash">—</span>
+        <input class="f-date" id="f-d2" type="date" placeholder="结束时间">
+      </div>
+      <div class="f-label">国家 / 地区</div>
+      <input class="f-in" id="f-country" placeholder="请输入" autocomplete="off">
+      <div class="f-bottom">
+        <button class="btn textbtn" onclick="resetFilter()">重置</button>
+        <button class="btn primary" onclick="confirmFilter()">确定</button>
+      </div>
+    </div>
+
+    <!-- ===== 小源提问范围 ===== -->
+    <div class="sheet-mask" id="sc-mask" onclick="closeScope()"></div>
+    <div class="sheet" id="scope-sheet">
+      <div class="sheet-head">
+        <span class="sheet-title">选择提问范围</span>
+        <span class="sheet-close" onclick="closeScope()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+      </div>
+      <div class="sheet-hint">选定后，小源会优先围绕该电站回答；选「全部电站」则覆盖整个账号的电站、告警与设备。</div>
+      <div class="scope-list" id="scope-list"></div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <div class="cf-mask" id="cf-mask">
+      <div class="cf-box">
+        <div class="t" id="cf-text">确定删除？</div>
+        <div class="b"><span onclick="cfCancel()">取消</span><span id="cf-ok" onclick="cfConfirm()">删除</span></div>
+      </div>
+    </div>
+    <div class="pick-mask" id="pick-mask" onclick="if(event.target===this)closePick()">
+      <div class="pick-sheet">
+        <div class="ph">添加附件</div>
+        <div class="row" onclick="pickFrom('production')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8fb4ff" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16M12 9v12"/></svg>
+          上传文件（Excel）
+        </div>
+        <div class="row" onclick="pickFrom('cam')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8fb4ff" stroke-width="1.8"><path d="M4 8.5h3l1.4-2h7.2L17 8.5h3v10.2H4z"/><circle cx="12" cy="13" r="3.2"/></svg>
+          拍照（调用摄像头）
+        </div>
+        <div class="row" onclick="pickFrom('gal')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8fb4ff" stroke-width="1.8"><rect x="3.2" y="4.6" width="17.6" height="14.8" rx="3"/><circle cx="8.6" cy="9.8" r="1.7"/><path d="m4.5 17.5 4.6-4.6 3.4 3.4 2.6-2.4 4.4 4.1"/></svg>
+          从相册选择照片 / 视频
+        </div>
+        <div class="row cancel" onclick="closePick()">取消</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ================= 分享体验引导层：仅首次访问（本地无任何仿真数据）时出现 ================= -->
+<div class="intro-mask" id="share-intro">
+  <div class="intro-card">
+    <div class="intro-top">
+      <span class="intro-logo">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2a1a05" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2" fill="#2a1a05" stroke="none"/><path d="M12 2.4v2.6M12 19v2.6M2.4 12h2.6M19 12h2.6M5.2 5.2l1.8 1.8M17 17l1.8 1.8M18.8 5.2 17 7M7 17l-1.8 1.8"/></svg>
+      </span>
+      <div>
+        <div class="intro-badge" id="intro-badge">光储监控仿真 · 在线体验</div>
+        <h2 id="intro-h2">先打开「仿真电站」<br>再回来看 APP</h2>
+      </div>
+    </div>
+    <p class="intro-desc" id="intro-desc">这是光储电站的仿真演示：<b>仿真电站</b>页负责发电、储能、负载的实时计算，<b>APP</b> 页负责监控展示，两个页面在同一个浏览器里自动联动。</p>
+    <ul class="intro-list" id="intro-list">
+      <li><i>1</i><span>点下面的按钮进入仿真电站，会有一座预置电站自动开始运行</span></li>
+      <li><i>2</i><span>可以在里面新建电站：选国家与城市、容配比、电价、上传负载曲线 Excel</span></li>
+      <li><i>3</i><span>切回本页（仿真台会开在新标签），这里的电站、统计、设备会自动同步</span></li>
+    </ul>
+    <div class="intro-note" id="intro-note">本页那 13 座「断连」电站是界面示意数据，连上仿真台后会替换成真实仿真的电站，不是故障。</div>
+    <button class="intro-btn-primary" id="intro-go" onclick="introGoSim()">进入仿真电站开始体验 ›</button>
+    <button class="intro-btn-ghost" onclick="introDismiss()">先看看 APP 界面</button>
+    <div class="intro-foot">数据只保存在你自己的浏览器里，不会影响其他人<br>建议用 Chrome / Edge 打开，电脑上可两页并排体验联动</div>
+  </div>
+</div>
+
+
+
+
+<script src="js/workspace-client.js"></script>
+<script src="js/history.js"></script>
+<script src="js/app-bridge.js"></script>
+<script src="js/api-client.js"></script>
+<script src="js/vendor/marked.min.js"></script>
+<script src="js/vendor/purify.min.js"></script>
+<script src="js/chat-markdown.js"></script>
+<script src="js/monitor-ai.js"></script>
+<script src="js/monitor.js?v=20261105-production"></script>
+<script src="js/reminders.js"></script>
+<script src="js/subscription-model.js"></script>
+<script src="js/subscriptions.js"></script>
+<script src="js/strategy-model.js?v=20261105-production"></script>
+<script src="js/strategies.js"></script>
+<script src="js/production-strategy.js?v=20261105-excel-card"></script>
+<script src="js/media-hash.js"></script>
+<script src="js/multimodal.js"></script>
+<script src="js/human-support.js"></script>
+<script src="js/health.js"></script>
+<script src="js/commissioning.js"></script>
+</body>
+</html>
