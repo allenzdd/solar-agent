@@ -12,7 +12,7 @@
   document.querySelector('.screen').append(drawer);
   const body = drawer.querySelector('.xr-body');
   let feed = { events: [], stale: false }, filter = 'active', selected = null, busy = false, failed = false;
-  let preferences = {}, lastFocus, context = null;
+  let preferences = {}, lastFocus, context = null, savedBallPosition = null;
   try { preferences = JSON.parse(localStorage.getItem('solar-reminders-v1') || '{}'); } catch {}
   if (!preferences || Array.isArray(preferences) || typeof preferences !== 'object') preferences = {};
   const make = (tag, className, text) => { const e = document.createElement(tag); if (className) e.className = className; if (text !== undefined) e.textContent = text; return e; };
@@ -48,7 +48,7 @@
     const below = y - bubble.offsetHeight - 14 < 58;
     bubble.classList.toggle('xr-below', below);
     bubble.style.left = left + 'px';
-    bubble.style.top = (below ? y + ball.offsetHeight + 14 : y - bubble.offsetHeight - 14) + 'px';
+    bubble.style.top = Math.max(58, Math.min(screen.clientHeight - bubble.offsetHeight - 20, below ? y + ball.offsetHeight + 14 : y - bubble.offsetHeight - 14)) + 'px';
     bubble.style.setProperty('--xr-arrow-x', Math.max(16, Math.min(width - 22, center - left - 5)) + 'px');
   }
   function show(id) { lastFocus = document.activeElement; selected = id || null; drawer.hidden = false; positionBubble(); renderBody(); drawer.querySelector('.xr-top button').focus(); }
@@ -233,7 +233,8 @@
     for (const e of list) body.append(eventCard(e));
   }
   function render() {
-    if(context){document.getElementById('xr-count').textContent='';home.replaceChildren();const preview=make('button','xr-preview');preview.type='button';preview.append(make('strong','',context.title),make('p','',context.summary));preview.onclick=()=>context?.onOpen();home.append(preview);positionBubble();return;}
+    if(context){document.getElementById('xr-count').textContent=context.attention?'(1)':'';document.getElementById('xr-open').firstChild.textContent=(context.actionLabel||'去对话')+' ';home.replaceChildren();const preview=make('button','xr-preview');preview.type='button';preview.append(make('strong','',context.title),make('p','',context.summary));preview.onclick=()=>context?.onOpen();home.append(preview);positionBubble();return;}
+    document.getElementById('xr-open').firstChild.textContent='去对话 ';
     const list = sorted().filter(active), urgent = list[0];
     document.getElementById('xr-count').textContent = list.length ? `(${list.length})` : '';
     home.replaceChildren();
@@ -272,7 +273,23 @@
   });
   void poll(); setInterval(poll, 5000);
   globalThis.SolarReminders = Object.freeze({
-    setContext(value){if(!context&&!value)return;context=value;ball.classList.toggle('co-context-ball',Boolean(value));bubble.classList.toggle('co-context-bubble',Boolean(value));render();},
+    setContext(value){
+      if(!context&&!value)return;
+      if(!context&&value)savedBallPosition={left:ball.style.left,top:ball.style.top};
+      context=value;
+      ball.classList.toggle('co-context-ball',Boolean(value));
+      bubble.classList.toggle('co-context-bubble',Boolean(value));
+      ball.classList.toggle('xr-context-ball',Boolean(value));
+      bubble.classList.toggle('xr-context-bubble',Boolean(value));
+      ball.classList.toggle('xr-has-attention',Boolean(value?.attention));
+      if(value?.anchor==='bottom-right'){
+        ball.style.left=Math.max(6,screen.clientWidth-ball.offsetWidth-16)+'px';
+        ball.style.top=Math.max(58,screen.clientHeight-ball.offsetHeight-108)+'px';
+      }else if(!value&&savedBallPosition){
+        ball.style.left=savedBallPosition.left;ball.style.top=savedBallPosition.top;savedBallPosition=null;
+      }
+      render();
+    },
     openContext(){if(!context)return false;context.onOpen();return true;},
     refresh: render,
     replaySaving() {

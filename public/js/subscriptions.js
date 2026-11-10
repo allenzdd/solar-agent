@@ -132,7 +132,5 @@
     if(/修改|改成|改为|调整/.test(q)){const old=state.items.slice().reverse().find(s=>s.kind===data.kind&&s.status!=='cancelled');if(old)data=chooseScope(M.parse(q,old),q);}
     draftCard(data);return true;
   }
-  const menu=el('a');menu.href='#subscriptions';menu.id='xs-menu';menu.setAttribute('role','menuitem');menu.append(el('span','','▦'),el('span','','我的订阅'),el('span','','›'));menu.addEventListener('click',event=>{event.preventDefault();closeAppMenu();openManager();});document.getElementById('app-more-menu')?.append(menu);
-  const shortcut=button('▦',()=>openManager(),'xy-new-chat xs-header-button');shortcut.title='我的订阅';shortcut.setAttribute('aria-label','我的订阅');document.querySelector('.xy-top .xy-new-chat')?.before(shortcut);
   global.SubscriptionDemo=Object.freeze({handle,open:openManager});
 })(globalThis);

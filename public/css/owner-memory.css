@@ -1,0 +1,52 @@
+.om-header-button { border:0; background:transparent; color:var(--accent-text); font:inherit; font-size:12px; cursor:pointer; padding:8px 5px; }
+.xiaoyuan .xy-top .ti { margin-right:0; }
+.om-heading { display:flex; align-items:center; justify-content:space-between; font-size:15px; color:var(--text); }
+.om-caption { margin:2px 0 13px; color:var(--muted); font-size:11px; line-height:1.6; }
+.om-text-button { border:0; background:transparent; color:var(--accent-text); font:inherit; font-size:11px; padding:8px 6px; cursor:pointer; }
+.om-pills { display:flex; flex-wrap:wrap; gap:9px; }
+.om-pill { display:flex; align-items:center; gap:10px; width:100%; min-width:0; padding:12px; text-align:left; background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:16px; font:inherit; font-size:13px; cursor:pointer; }
+.om-pill:hover { background:var(--selected); border-color:var(--accent-text); }
+.om-topic-icon { width:30px; height:30px; flex-shrink:0; border-radius:10px; display:grid; place-items:center; background:color-mix(in srgb, var(--accent-text) 12%, transparent); color:var(--accent-text); font-size:18px; }
+.om-revenue { color:#b88223; background:rgba(205,158,60,.12); }
+.om-generation { color:#219879; background:rgba(42,174,126,.12); }
+.om-temperature { color:#df7e36; background:rgba(232,132,55,.12); }
+.om-health { color:#6983ce; background:rgba(110,134,215,.12); }
+.om-pill-copy { min-width:0; display:flex; flex-direction:column; gap:4px; line-height:1.5; }
+.om-pill-copy small { font-size:10px; color:var(--muted); }
+.om-entry { display:block; margin:10px auto 0; background:transparent; color:var(--accent-text); border:0; font:inherit; font-size:11px; padding:8px; cursor:pointer; }
+.om-compact { display:flex; flex-direction:column; align-items:flex-start; gap:5px; padding:6px 0 10px; min-width:0; }
+.om-compact-heading { display:flex; align-items:center; gap:8px; width:100%; }
+.om-compact-heading > .om-text-button { margin-left:auto; padding:5px 0 5px 8px; }
+.om-compact-label { display:inline-flex; align-items:center; gap:8px; flex-shrink:0; font:inherit; font-size:11px; color:var(--accent-text); border:1px solid var(--border); border-radius:20px; background:var(--card); padding:7px 11px; cursor:pointer; text-align:left; }
+.om-chevron { font-size:15px; line-height:1; }
+.om-panel { width:100%; display:flex; flex-direction:column; gap:4px; }
+.om-panel[hidden] { display:none; }
+.om-panel-tools { display:flex; align-items:center; justify-content:space-between; }
+.om-panel-tools .om-text-button { padding:3px 0 4px; font-size:10px; }
+.om-sample-label { color:var(--muted); font-size:10px; }
+.om-strip { display:flex; gap:6px; width:100%; overflow-x:auto; scrollbar-width:none; min-width:0; }
+.om-pill.om-small { width:auto; flex-shrink:0; gap:5px; padding:7px 10px; border-radius:30px; font-size:11px; }
+.om-small .om-topic-icon { width:16px; height:16px; background:transparent; font-size:13px; }
+.om-overlay[hidden] { display:none; }
+.om-overlay { position:absolute; inset:0; z-index:20; display:flex; flex-direction:column; background:var(--page); color:var(--text); border-radius:0; }
+.om-manager-header { display:flex; align-items:center; justify-content:space-between; padding:10px 20px; border-bottom:1px solid var(--divider); }
+.om-manager-header h3 { font-size:17px; font-weight:500; margin:5px 0; }
+.om-manager-body { padding:18px; overflow-y:auto; flex:1; min-height:0; }
+.om-info { padding:15px; background:var(--selected); border-radius:16px; }
+.om-info strong,.om-demo strong { font-size:14px; font-weight:500; }
+.om-info p,.om-demo p { font-size:11px; color:var(--text-secondary); line-height:1.8; margin:7px 0 0; }
+.om-toggle { font:inherit; font-size:12px; background:var(--card); color:var(--accent-text); border:1px solid var(--border); border-radius:12px; padding:10px 14px; margin-top:12px; cursor:pointer; width:100%; }
+.om-tabs { display:flex; padding:4px; background:var(--raised); border-radius:12px; margin:18px 0 12px; gap:4px; }
+.om-tabs button { flex:1; border:0; background:transparent; color:var(--muted); font:inherit; font-size:12px; padding:9px; border-radius:9px; cursor:pointer; }
+.om-tabs button.on { background:var(--card); color:var(--text); }
+.om-memory-row { border:1px solid var(--border); border-radius:14px; padding:12px; background:var(--card); margin-bottom:9px; }
+.om-memory-query { background:transparent; border:0; color:var(--text); font:inherit; font-size:12px; line-height:1.6; text-align:left; padding:0; cursor:pointer; }
+.om-memory-footer { display:flex; gap:4px; align-items:center; margin-top:4px; }
+.om-memory-footer small { flex:1; color:var(--muted); font-size:10px; line-height:1.6; }
+.om-demo { border-top:1px solid var(--divider); margin-top:18px; padding-top:18px; }
+.om-action,.om-secondary { width:100%; border:0; border-radius:12px; padding:12px; font:inherit; font-size:12px; margin-top:10px; background:#1478ff; color:white; cursor:pointer; }
+.om-secondary { background:var(--selected); color:var(--accent-text); }
+.om-empty,.om-privacy { font-size:11px; line-height:1.8; color:var(--muted); }
+.om-privacy { margin:18px 0 8px; font-size:10px; }
+.om-clear { border:0; background:transparent; font:inherit; font-size:11px; color:var(--red); padding:10px 0; cursor:pointer; }
+.xiaoyuan [class^="om-"] button:focus-visible,.xiaoyuan button[class^="om-"]:focus-visible { outline:2px solid var(--accent-text); outline-offset:2px; }

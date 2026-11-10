@@ -1,7 +1,6 @@
 (function(){
  'use strict';
  const screen=document.querySelector('.screen'),menu=document.getElementById('app-more-menu');if(!screen||!menu)return;
- const sampleHashes=['1abaef8edde91745033c47e5f2b35affcdb6fa3bbec18a3f4d34db2bbea9abaa','b048359894823e74377fd078ec90590a0096c6a4d5486b5096a072cc4f2c020e'];
  const assets=['/images/commissioning-cabinet.png','/images/commissioning-surroundings.png'];
  const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
  const btn=(text,fn,cls='')=>{const b=el('button',cls,text);b.type='button';b.onclick=fn;return b;};
@@ -10,15 +9,14 @@
  const input=(capture)=>{const n=el('input');n.type='file';n.accept='image/*';n.hidden=true;if(capture)n.setAttribute('capture','environment');else n.multiple=true;n.onchange=()=>{const files=Array.from(n.files||[]);n.value='';void addFiles(files);};screen.append(n);return n;};
  const camera=input(true),gallery=input(false);
  function image(src){const im=new Image();im.src=src;return im.decode().then(()=>im);}
- function similar(a,b){if(!a||!b)return false;let bits=0;for(let i=0;i<a.hash.length;i++){let v=parseInt(a.hash[i],16)^parseInt(b.hash[i],16);while(v){bits++;v&=v-1;}}return bits<=28&&a.colors.reduce((s,v,i)=>s+Math.abs(v-b.colors[i]),0)/a.colors.length<=10;}
- let references;
- function signatures(){return references||=(Promise.all(assets.map(async src=>MediaEvidence.visualFingerprint(await image(src)))).catch(e=>{references=null;throw e;}));}
  function invalidate(){review=null;password='';filled=false;authorized=false;}
  function goReview(take=false){prompt=false;view='review';render();if(take&&!busy)camera.click();}
  function reset(){version++;busy=false;photos=[];invalidate();prompt=true;view='auth';render();}
- async function addFiles(files){if(!files.length||busy||layer.hidden)return;if(files.length>2-photos.length){toast('请保留两张照片：柜体正面和周边环境');return;}const seq=version;invalidate();busy=true;render();try{const decoded=await Promise.all(files.map(async file=>{if(file.size>25*1024*1024)throw Error('单张照片请控制在 25 MB 以内');const url=URL.createObjectURL(file);try{const im=await image(url),c=document.createElement('canvas'),scale=Math.min(1,960/Math.max(im.naturalWidth,im.naturalHeight));c.width=Math.max(1,Math.round(im.naturalWidth*scale));c.height=Math.max(1,Math.round(im.naturalHeight*scale));c.getContext('2d').drawImage(im,0,0,c.width,c.height);return {src:c.toDataURL('image/jpeg',.8),hash:MediaEvidence.sha256(new Uint8Array(await file.arrayBuffer())),sig:MediaEvidence.visualFingerprint(im)};}finally{URL.revokeObjectURL(url);}}));if(seq!==version)return;photos.push(...decoded);if(photos.length===2){const [x,y]=photos;if(x.hash!==y.hash&&sampleHashes.includes(x.hash)&&sampleHashes.includes(y.hash))finish(true);else{const [a,b]=await signatures();if(seq!==version)return;finish((similar(x.sig,a)&&similar(y.sig,b))||(similar(x.sig,b)&&similar(y.sig,a)));}}}catch(e){if(seq===version)toast(e.message||'照片读取失败');}finally{if(seq===version){busy=false;render();}}}
- function finish(matched){review=matched?'demo-pass':'review-needed';password=matched?'DEMO-'+String(crypto.getRandomValues(new Uint32Array(1))[0]%1000000).padStart(6,'0'):'';filled=false;authorized=false;}
- async function examples(){if(busy)return;const seq=++version;invalidate();busy=true;render();try{await signatures();if(seq===version){photos=assets.map(src=>({src}));finish(true);}}catch{if(seq===version)toast('演示照片暂不可用，请重试');}finally{if(seq===version){busy=false;render();}}}
+ // This dedicated commissioning page simulates approval; it never authorizes a real device.
+ // Rephotographed/compressed demo inputs must not be gated by matching original image bytes.
+ async function addFiles(files){if(!files.length||busy||layer.hidden)return;if(files.length>2-photos.length){toast('请保留两张照片：柜体正面和周边环境');return;}const seq=version;invalidate();busy=true;render();try{const decoded=await Promise.all(files.map(async file=>{if(file.size>25*1024*1024)throw Error('单张照片请控制在 25 MB 以内');if(file.type&&!file.type.startsWith('image/'))throw Error('请选择照片文件');const url=URL.createObjectURL(file);try{let im;try{im=await image(url);}catch{throw Error('这张照片暂时无法读取，请重新拍摄，或转为 JPG/PNG 后上传');}if(!(im.naturalWidth>0&&im.naturalHeight>0))throw Error('照片内容无法读取，请重新选择');const c=document.createElement('canvas'),scale=Math.min(1,960/Math.max(im.naturalWidth,im.naturalHeight));c.width=Math.max(1,Math.round(im.naturalWidth*scale));c.height=Math.max(1,Math.round(im.naturalHeight*scale));c.getContext('2d').drawImage(im,0,0,c.width,c.height);return {src:c.toDataURL('image/jpeg',.8)};}finally{URL.revokeObjectURL(url);}}));if(seq!==version)return;photos.push(...decoded);if(photos.length===2)finish();}catch(e){if(seq===version)toast(e.message||'照片读取失败');}finally{if(seq===version){busy=false;render();}}}
+ function finish(){review='demo-pass';password='DEMO-'+String(crypto.getRandomValues(new Uint32Array(1))[0]%1000000).padStart(6,'0');filled=false;authorized=false;}
+ function examples(){if(busy)return;version++;invalidate();photos=assets.map(src=>({src}));finish();render();}
  function close(){version++;busy=false;layer.hidden=true;globalThis.SolarReminders?.setContext(null);previousFocus?.focus();}
  function backfill(){if(review!=='demo-pass'||!password)return;filled=true;view='auth';prompt=false;render();}
  function submit(){if(!filled||review!=='demo-pass'||!password||authorized)return;authorized=true;render();toast('演示开机授权已提交');}
@@ -29,14 +27,13 @@
 
   const send=btn(authorized?'已提交':'提交',submit,'co-primary');send.disabled=!filled||authorized;footer.append(send);
  }
- function reviewPage(body,footer){body.append(el('p','co-note','请提供柜体正面和周边环境各一张。可拍照、从相册上传，也可直接使用图 2、图 3 的演示样例。'));const media=el('div','co-photos');photos.forEach((p,i)=>{const tile=el('div'),im=el('img');im.src=p.src;im.alt='现场照片 '+(i+1);tile.append(im,btn('移除照片 '+(i+1),()=>{if(busy)return;photos.splice(i,1);invalidate();render();},'co-remove'));media.append(tile);});if(photos.length)body.append(media);
+ function reviewPage(body,footer){body.append(el('p','co-note','请拍摄柜体正面和周边环境各一张，或从相册上传。两张照片读取完成后，将按工商业开局演练预设展示审核通过结果。'));const media=el('div','co-photos');photos.forEach((p,i)=>{const tile=el('div'),im=el('img');im.src=p.src;im.alt='现场照片 '+(i+1);tile.append(im,btn('移除照片 '+(i+1),()=>{if(busy)return;photos.splice(i,1);invalidate();render();},'co-remove'));media.append(tile);});if(photos.length)body.append(media);
   const controls=el('div','co-actions');for(const b of [btn('拍照',()=>camera.click(),'co-secondary'),btn('从相册上传',()=>gallery.click(),'co-secondary'),btn('使用演示照片',()=>void examples(),'co-secondary')]){b.disabled=busy||(photos.length>=2&&b.textContent!=='使用演示照片');controls.append(b);}body.append(controls);
   if(busy){body.append(el('p','co-note','正在读取并审核照片…'));return;}
-  if(review==='review-needed'){const box=el('section','co-card');box.append(el('strong','co-warning','需要现场复核 · 未发放密码'),el('p','','无法仅凭这些照片确认安装合规。请由现场人员核验遮阳防雨、可燃物间距、基础固定及设备外观。若要体验回填和提交，可选择“使用演示照片”。'));body.append(box);return;}
-  if(review!=='demo-pass')return;
-  const box=el('section','co-card');box.append(el('strong','co-good','✓ 演示审核通过 · 可继续模拟授权'),el('p','co-note','这是已标注的演示案例，以下通过状态来自预设复核结果。照片本身不能证明合规。'));
-  const checks=[['遮阳防雨','演示复核通过；实际需核对防雨设施及排水。'],['安全间距','图 3 可见邻近木材，必须现场核实可燃物间距；演示按已复核处理。'],['基础与固定','图 2 可见混凝土基座，锚固状态须现场核验。'],['设备外观','照片可见柜体和标识；设备细节需现场复核。']];for(const [title,note]of checks){const row=el('div','co-check');row.append(el('span','','✓'),el('div','',title+'：'+note));box.append(row);}
-  const pass=el('div','co-password');pass.append(el('small','','储能开机密码（演示）'),el('strong','',password));box.append(pass,el('p','co-note','此密码仅用于本页面的模拟授权。'));body.append(box);footer.append(btn('回填开机密码并返回',backfill,'co-primary'));
+  if(review!=='demo-pass'){if(photos.length===1)body.append(el('p','co-note','已收到 1 张照片，再补充一张即可完成本次演练审核。'));return;}
+  const box=el('section','co-card');box.append(el('strong','co-good','✓ 审核通过 · 可继续模拟授权'),el('p','co-note','已收到两张照片，以下为本次演练预设的复核结果。'));
+  const checks=[['遮阳防雨','已按演练预设完成防雨设施与排水核验。'],['安全间距','已按演练预设完成可燃物与维护间距核验。'],['基础与固定','已按演练预设完成基座与固定方式核验。'],['设备外观','已按演练预设完成柜体与标识核验。']];for(const [title,note]of checks){const row=el('div','co-check');row.append(el('span','','✓'),el('div','',title+'：'+note));box.append(row);}
+  const pass=el('div','co-password');pass.append(el('small','','储能开机密码（演示）'),el('strong','',password));box.append(pass,el('p','co-note','Demo 结果与密码仅在本页面有效；实际安装及开机须现场复核。'));body.append(box);footer.append(btn('回填开机密码并返回',backfill,'co-primary'));
  }
  function render(){if(layer.hidden)return;layer.replaceChildren();const header=el('header','co-header'),body=el('div','co-body'),footer=el('footer','co-footer');const title=view==='auth'?'储能开机授权':view==='notice'?'华为小源':'华为小源 · 安全审核';layer.setAttribute('aria-label',title);header.append(btn('‹',()=>{if(view!=='auth'){view='auth';render();}else close();},'co-back'),el('h2','',title),el('span','co-badge','Demo'));layer.append(header,body,footer);if(view==='auth')auth(body,footer);else if(view==='notice'){const card=el('section','co-card');card.append(el('strong','','✦ 小源主动提醒'),el('p','','储能开机授权还未完成。是否要去拍照？请拍摄柜体正面和周边安装环境，我会整理安全审核意见。'));const actions=el('div','co-actions');actions.append(btn('稍后',()=>{prompt=false;view='auth';render();},'co-secondary'),btn('去拍照',()=>goReview(true),'co-primary'));card.append(actions);body.append(card);}else reviewPage(body,footer);footer.hidden=!footer.childElementCount;globalThis.SolarReminders?.setContext(view==='auth'&&!authorized&&!filled?{visible:prompt,title:'储能开机授权待完成',summary:'是否要去拍照？小源可以帮你整理安全审核意见。',onOpen:()=>{view='notice';render();layer.querySelector('button').focus();}}:null);}
  layer.addEventListener('keydown',e=>{if(e.key==='Escape')close();});

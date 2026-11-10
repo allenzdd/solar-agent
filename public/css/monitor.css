@@ -771,3 +771,8 @@
   .xy-excel-info { min-width:0; line-height:1.35; }
   .xy-excel-info strong { display:block; font-size:12px; font-weight:600; overflow-wrap:anywhere; }
   .xy-excel-info small { display:block; margin-top:3px; font-size:10px; color:var(--text-secondary); }
+  .screen:has(#xiaoyuan.open) #xy-ball,
+  .screen:has(#xiaoyuan.open) #xy-reminder-float {
+    visibility:hidden;
+    pointer-events:none;
+  }

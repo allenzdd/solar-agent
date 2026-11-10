@@ -522,6 +522,7 @@ function pdPvLineData(p){
     '<circle cx="' + x(lastUtc) + '" cy="' + y(lastPv) + '" r="3" fill="#248b65"/></svg><p class="pd-sankey-caption">' + date(start) + ' 至 ' + date(end) + ' · ' + points.length + ' 天有数据</p>';
 }
 const PD_CHARTS = {
+  operations: {title:'运营分析卡片',description:'已生成收益、发电量与近7天趋势，可点选日期、切换指标和图表类型。'},
   sankey: { title:'能量流桑基图', caption:'功率', description:'图表显示光伏、电网、储能和负载之间的功率流向。', graph:pdSankeyData },
   pv: { title:'光功率折线图', caption:'最近 90 天 · 日均光伏功率 · kW · 历史仿真', description:'图表显示最近 90 天的日均光伏功率，单位为 kW。', graph:pdPvLineData }
 };
@@ -536,6 +537,12 @@ function pdChartCards(station){
 function refreshPlantCharts(p){
   for (const card of document.querySelectorAll('#plant-detail [data-plant-chart]')) {
     const chart = PD_CHARTS[card.dataset.plantChart];
+    if(card.dataset.plantChart==='operations'){
+      const host=card.querySelector('.pd-sankey-body');
+      host.setAttribute('data-operations-ui','');
+      if(globalThis.OperationsUI)OperationsUI.render(host,p);
+      continue;
+    }
     const stale = p && SIMSTATE && Date.now() - SIMSTATE.ts > 15000;
     const caption = card.dataset.plantChart === 'pv' ? chart.caption : chart.caption + ' · kW · ' + (stale ? '最后快照' : '仿真数据');
     const body = card.querySelector('.pd-sankey-body');
@@ -567,8 +574,8 @@ function showPlantChart(pid, id){
   document.getElementById('pd-' + id)?.scrollIntoView({block:'center'});
 }
 function handlePlantChart(q, started){
-  if (!/添加|增加|加个|加一个|加一张|新增/.test(q)) return false;
-  const id = /桑基图/.test(q) ? 'sankey' : /(?:光功率|光伏(?:发电)?功率).{0,8}(?:折线图|曲线图|曲线)/.test(q) ? 'pv' : '';
+  if (!/添加|增加|加个|加一个|加一张|新增|生成|做一个/.test(q)) return false;
+  const id = /运营分析|运营报告卡片/.test(q) ? 'operations' : /桑基图/.test(q) ? 'sankey' : /(?:光功率|光伏(?:发电)?功率).{0,8}(?:折线图|曲线图|曲线)/.test(q) ? 'pv' : '';
   if (!id) return false;
   const chart = PD_CHARTS[id];
   if (/不要|别加|取消|移除|删除/.test(q)) return false;
@@ -866,6 +873,7 @@ function renderDevices(){
       <div class="kv"><span class="k">SN 号</span><span class="v">${d.sn}</span></div>
       <div class="kv"><span class="k">设备类型</span><span class="v">${d.type}</span></div>
       <div class="kv"><span class="k">质保有效期</span><span class="v">-/-/-</span></div>
+      ${d.live&&['ESS','逆变器'].includes(d.type)?`<div class="link-row"><button type="button" class="xy-plant-chart-link" onclick="DeviceParameterDemo.open('${esc(d.pid)}','${d.type==='ESS'?'storage':'inverter'}')">参数设置 ›</button></div>`:''}
       ${d.sub?`<div class="link-row"><a onclick="toast('查看下挂设备')">下挂设备</a><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3a7afe" stroke-width="2"><path d="m9 5 7 7-7 7"/></svg></div>`:''}
     </div>`).join('');
 }
@@ -1587,6 +1595,9 @@ function setGenerating(on){
 async function askLLM(q, imgs){
   const started = performance.now();
   const hasImg = !!(imgs && imgs.length);
+  if (!hasImg && globalThis.CustomSkills?.handle(q)) return;
+  if (!hasImg && timeLocalAnswer(() => globalThis.TaskFollowDemo?.handle(q), started)) return;
+  if (!hasImg && timeLocalAnswer(() => globalThis.DeviceParameterDemo?.handle(q), started)) return;
   if (!hasImg && confirmBillTariff(q, started)) return;
   if (!hasImg && /排产计划/.test(q) && /光储策略|充放电策略/.test(q)) {
     showAnswerTime(addMsg('ai','请点「＋」→「上传文件（Excel）」，选择排产计划后再发送这句话。收到文件后我会测算每日充放电策略。'), started);
@@ -1681,6 +1692,7 @@ function sendMsg(){
   document.getElementById('xy-intro').classList.add('hide');
   document.getElementById('xy-chat').classList.add('on');
   curLang = detectLang(q || '');
+  if (!hasPlan && !imgs.length && q) globalThis.OwnerMemory?.record(q);
   if (hasPlan) { production.send(q); return; }
   if (imgs.length) {
     if(globalThis.MultimodalDemo?.renderUserMedia)MultimodalDemo.renderUserMedia(imgs,q);
@@ -1709,6 +1721,7 @@ function newChat(){
   document.getElementById('xy-chat').innerHTML = '';
   document.getElementById('xy-chat').classList.remove('on');
   document.getElementById('xy-intro').classList.remove('hide');
+  globalThis.OwnerMemory?.newSession();
   renderSugs();
   toast('已开始新对话');
 }
@@ -1795,13 +1808,18 @@ document.querySelectorAll('.chip').forEach(c=>{
 });
 function openXY(){
   document.getElementById('xiaoyuan').classList.add('open');
+  globalThis.OwnerMemory?.render();
   const chat = document.getElementById('xy-chat');
   setTimeout(()=>{ chat.scrollTop = chat.scrollHeight; }, 30);
   setTimeout(()=>document.getElementById('xy-input').focus(), 120);
 }
 function closeXY(){
+  globalThis.XiaoyuanMenu?.close();
+  globalThis.CustomSkills?.close();
+  globalThis.OwnerMemory?.close();
   document.getElementById('xiaoyuan').classList.remove('open');
   document.getElementById('xy-input').blur();
+  globalThis.DeviceParameterDemo?.refresh();
 }
 /* 回车发送 */
 document.getElementById('xy-input').addEventListener('keydown', e=>{
