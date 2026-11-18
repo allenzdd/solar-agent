@@ -1,0 +1,84 @@
+/* Management-only light palette; SVG variables also react to live theme changes. */
+:root[data-theme="light"] body.sim-manager {
+  --page:#f4f7fb;
+  --surface:#f4f7fb;
+  --panel:#ffffff;
+  --card:#ffffff;
+  --raised:#edf2f8;
+  --hover:#e5edf7;
+  --selected:#e8f1ff;
+  --text:#172b45;
+  --text-body:#243b53;
+  --text-secondary:#40566f;
+  --muted:#53677f;
+  --subtle:#5b6c81;
+  --accent:#1d62d8;
+  --accent-text:#1b57b8;
+  --green:#147044;
+  --amber:#8d5100;
+  --red:#bb2c38;
+  --border:#cbd5e1;
+  --divider:#e0e6ee;
+  --soft:#edf2f8;
+  --sim-flow-node:#ffffff;
+  --sim-flow-center:#e8f1ff;
+  --sim-plot-text:#172b45;
+  --sim-plot-label:#53677f;
+  --sim-plot-grid:#d2dde9;
+  --sim-pv:#167548;
+  --sim-load:#1d62d8;
+  --sim-bat:#995700;
+  --sim-grid:#8645b5;
+  --sim-revenue:#8d5100;
+  --sim-history-a:#1d62d8;
+  --sim-history-b:#167548;
+  --sim-warning:#8d5100;
+  color:var(--text-body);
+  background:var(--page);
+  color-scheme:light;
+}
+:root[data-theme="light"] .sim-manager .top { background:rgba(255,255,255,.96); border-color:var(--border); }
+:root[data-theme="light"] .sim-manager :is(.sim-sec,.sp-card,.sm,.manager-bar,.manager-login,.mh-card) { background:var(--card); color:var(--text-body); border-color:var(--border); }
+:root[data-theme="light"] .sim-manager .manager-login { box-shadow:0 12px 40px #20385812; }
+:root[data-theme="light"] .sim-manager :is(.sim-clock,.top .sim-clock,.kv-grid > div,.cf-preview > div) { background:var(--raised); border-color:var(--divider); }
+:root[data-theme="light"] .sim-manager .sim-flow { background:linear-gradient(180deg,#edf5ff,#ffffff); border-color:var(--border); }
+:root[data-theme="light"] .sim-manager :is(.sp-card:hover,.sp-card.on) { background:var(--selected); border-color:var(--accent); }
+:root[data-theme="light"] .sim-manager :is(.cf-inp,.manager-login input,.manager-control-code,.mh-picker input,.reminder-lab-row select) { background:#fff; color:var(--text); border-color:#8294aa; }
+:root[data-theme="light"] .sim-manager :is(input,textarea)::placeholder { color:var(--muted); opacity:1; }
+:root[data-theme="light"] .sim-manager :is(select option,select optgroup) { background:#fff; color:var(--text); }
+:root[data-theme="light"] .sim-manager :is(.manager-bar button,.mh-head button,.reminder-lab-row button,.lnk) { background:var(--raised); color:var(--text-body); border-color:var(--border); }
+:root[data-theme="light"] .sim-manager :is(.manager-bar button,.mh-head button,.reminder-lab-row button,.lnk):hover { color:var(--accent-text); background:var(--selected); border-color:var(--accent); }
+:root[data-theme="light"] .sim-manager :is(.manager-login button,.cf-submit,.sp-add,.cf-upbtn) { color:#fff; background:#1d62d8; box-shadow:0 4px 12px #1d62d81a; }
+:root[data-theme="light"] .sim-manager :is(.manager-login button,.cf-submit,.sp-add,.cf-upbtn):hover { background:#184fae; }
+:root[data-theme="light"] .sim-manager #manager-takeover { background:var(--raised); color:var(--text-body); border:1px solid var(--border); box-shadow:none; }
+:root[data-theme="light"] .sim-manager :is(button,input,select,textarea,a,[tabindex]):focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+:root[data-theme="light"] .sim-manager :is(button,.cf-submit):disabled { opacity:1; color:var(--muted); background:#e8edf3; border:1px solid var(--border); box-shadow:none; cursor:default; }
+:root[data-theme="light"] .sim-manager .sim-seg span { color:var(--text-secondary); background:var(--raised); border-color:var(--border); }
+:root[data-theme="light"] .sim-manager .sim-seg span.on { color:var(--accent-text); background:var(--selected); border-color:var(--accent); }
+:root[data-theme="light"] .sim-manager :is(.sim-state,.sim-spd.live,.live-badge,.sp-card .tag.ok) { color:var(--green); background:#e9f6ef; border-color:#92c9a8; }
+:root[data-theme="light"] .sim-manager :is(.sim-state.paused,.sim-spd.hot,.sp-card .tag.fault) { color:var(--amber); background:#fff2db; border-color:#d9b679; }
+:root[data-theme="light"] .sim-manager .sim-spd:not(.live):not(.hot) { color:var(--accent-text); background:var(--selected); border-color:#a7c1e9; }
+:root[data-theme="light"] .sim-manager .sp-card .tag { padding:4px 8px; border-radius:8px; font-size:11px; border:1px solid var(--border); }
+:root[data-theme="light"] .sim-manager .tg { background:#788da6; }
+:root[data-theme="light"] .sim-manager .tg.on { background:var(--red); }
+:root[data-theme="light"] .sim-manager .tg::after { background:#fff; }
+:root[data-theme="light"] .sim-manager .sim-range { background:#b7c8dd; accent-color:var(--accent); }
+:root[data-theme="light"] .sim-manager .demo-tip { background:#e9f5ef; border-color:#b3d2c0; }
+:root[data-theme="light"] .sim-manager .demo-tip > svg { stroke:var(--green); }
+:root[data-theme="light"] .sim-manager .demo-exit { color:var(--green); background:#fff; border-color:#92c9a8; }
+:root[data-theme="light"] .sim-manager .toast { background:#fff; color:var(--text); border:1px solid var(--border); box-shadow:0 8px 28px #20385824; max-width:calc(100vw - 32px); white-space:normal; line-height:1.65; overflow-wrap:anywhere; }
+:root[data-theme="light"] .sim-manager :is(.cf-lab,.sim-lab,.sim-sec-h,.manager-login p) { color:var(--text-secondary); }
+:root[data-theme="light"] .sim-manager :is(.sp-tip,.foot-note,.cf-check,.cf-loadstate) { color:var(--muted); line-height:1.75; }
+:root[data-theme="light"] .sim-manager .sm { min-width:0; }
+:root[data-theme="light"] .sim-manager .sm .sl { white-space:normal; line-height:1.5; }
+:root[data-theme="light"] .sim-manager .kv-grid b { white-space:normal; overflow-wrap:anywhere; }
+:root[data-theme="light"] .sim-manager .log-item { color:var(--text-secondary); line-height:1.65; }
+:root[data-theme="light"] .sim-manager .mh-plot svg text { opacity:1; fill:var(--muted); }
+:root[data-theme="light"] .sim-manager .mh-plot svg line { opacity:1; stroke:var(--divider); }
+:root[data-theme="light"] .sim-manager .mh-table-wrap th { color:var(--text); background:var(--raised); }
+:root[data-theme="light"] .sim-manager .mh-table-wrap td { color:var(--text-secondary); background:#fff; }
+:root[data-theme="light"] .sim-manager .mh-table-wrap tbody tr:nth-child(even) td { background:#f5f8fc; }
+:root[data-theme="light"] .sim-manager .cf-selwrap svg { fill:var(--muted); }
+@media(max-width:650px) {
+  :root[data-theme="light"] .sim-manager #view-detail .sim-metrics { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+}

@@ -7,6 +7,7 @@ for (const args of [
   ['--test','tests/owner-memory.test.mjs'],
   ['--test','tests/custom-skills.test.mjs'],
   ['--test','tests/commissioning.test.mjs'],
+  ['--test','tests/manager-light.test.mjs'],
   ['--test', 'tests/api.test.mjs', 'tests/client.test.mjs', 'tests/site.test.mjs', 'tests/worker.test.mjs', 'tests/workspace.test.mjs', 'tests/reminders.test.mjs', 'tests/history.test.mjs', 'tests/energy.test.mjs', 'tests/inverter.test.mjs', 'tests/inverter-risk.test.mjs', 'tests/manager-auth.test.mjs', 'tests/inverter-drill.test.mjs', 'tests/workspace-query.test.mjs', 'tests/subscriptions.test.mjs', 'tests/strategies.test.mjs'],
 ]) {
   const result = spawnSync(process.execPath, args, { cwd: root, stdio: 'inherit' });

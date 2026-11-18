@@ -772,10 +772,10 @@ function updateLoadBadge(){
   if (!el) return;
   if (LOAD_STORE.ready && LOAD_STORE.table) {
     el.textContent = '已载入：' + LOAD_STORE.name;
-    el.style.color = '#30d158';
+    el.style.color = 'var(--green)';
   } else {
     el.textContent = '未加载文件';
-    el.style.color = '#7c8291';
+    el.style.color = 'var(--muted)';
   }
 }
 
@@ -814,11 +814,11 @@ const FLOW_ICON = {
 };
 function flowNode(n, color){
   return '<g transform="translate(' + n.x + ',' + n.y + ')">' +
-    '<rect width="116" height="58" rx="13" fill="#151922" stroke="' + color + '" stroke-opacity=".38"/>' +
+    '<rect width="116" height="58" rx="13" fill="var(--sim-flow-node,#151922)" stroke="' + color + '" stroke-opacity=".38"/>' +
     '<circle cx="24" cy="29" r="14" fill="' + color + '" fill-opacity=".13"/>' +
     '<g transform="translate(24,29)" stroke-linecap="round">' + FLOW_ICON[n.k].replace(/C/g, color) + '</g>' +
-    '<text x="42" y="25" fill="#8b91a0" font-size="10.5">' + n.name + '</text>' +
-    '<text x="42" y="43" fill="#fff" font-size="14" font-weight="700">' + n.val + '</text>' +
+    '<text x="42" y="25" fill="var(--sim-plot-label,#8b91a0)" font-size="10.5">' + n.name + '</text>' +
+    '<text x="42" y="43" fill="var(--sim-plot-text,#fff)" font-size="14" font-weight="700">' + n.val + '</text>' +
     '</g>';
 }
 function flowLine(x1,y1,x2,y2,color,power,dur){
@@ -833,26 +833,26 @@ function simFlow(){
   const k = SIM.cfg.invKw;
   const pv = SIM.pv, load = SIM.load, bat = SIM.bat, grid = SIM.grid;
   const nodes = [
-    { k:'pv',   x:4,   y:4,   name:'光伏阵列', val: pv.toFixed(1) + ' kW', c:'#30d158' },
-    { k:'load', x:300, y:4,   name:'负载',     val: load.toFixed(1) + ' kW', c:'#0a84ff' },
-    { k:'grid', x:4,   y:190, name: grid >= 0 ? '电网 · 取电' : '电网 · 上网', val: Math.abs(grid).toFixed(1) + ' kW', c:'#bf5af2' },
-    { k:'bat',  x:300, y:190, name:'储能 SOC ' + SIM.soc.toFixed(0) + '%', val: Math.abs(bat).toFixed(1) + ' kW', c:'#ff9f0a' }
+    { k:'pv',   x:4,   y:4,   name:'光伏阵列', val: pv.toFixed(1) + ' kW', c:'var(--sim-pv,#30d158)' },
+    { k:'load', x:300, y:4,   name:'负载',     val: load.toFixed(1) + ' kW', c:'var(--sim-load,#0a84ff)' },
+    { k:'grid', x:4,   y:190, name: grid >= 0 ? '电网 · 取电' : '电网 · 上网', val: Math.abs(grid).toFixed(1) + ' kW', c:'var(--sim-grid,#bf5af2)' },
+    { k:'bat',  x:300, y:190, name:'储能 SOC ' + SIM.soc.toFixed(0) + '%', val: Math.abs(bat).toFixed(1) + ' kW', c:'var(--sim-bat,#ff9f0a)' }
   ];
   const dur = p => (1.9 - Math.min(1, Math.abs(p) / Math.max(20, k)) * 1.45).toFixed(2);
   let s = '<svg viewBox="0 0 420 252" xmlns="http://www.w3.org/2000/svg">';
-  s += flowLine(120, 62, 210, 125, '#30d158', pv, dur(pv));
-  s += flowLine(300, 62, 210, 125, '#0a84ff', -load, dur(load));
-  s += flowLine(120, 190, 210, 125, '#bf5af2', grid, dur(grid));
-  s += flowLine(300, 190, 210, 125, '#ff9f0a', bat, dur(bat));
-  s += '<circle cx="210" cy="125" r="40" fill="#0f1320" stroke="rgba(58,122,254,.45)" stroke-width="1.4"/>';
+  s += flowLine(120, 62, 210, 125, 'var(--sim-pv,#30d158)', pv, dur(pv));
+  s += flowLine(300, 62, 210, 125, 'var(--sim-load,#0a84ff)', -load, dur(load));
+  s += flowLine(120, 190, 210, 125, 'var(--sim-grid,#bf5af2)', grid, dur(grid));
+  s += flowLine(300, 190, 210, 125, 'var(--sim-bat,#ff9f0a)', bat, dur(bat));
+  s += '<circle cx="210" cy="125" r="40" fill="var(--sim-flow-center,#0f1320)" stroke="rgba(58,122,254,.45)" stroke-width="1.4"/>';
   s += '<circle cx="210" cy="125" r="40" fill="none" stroke="rgba(58,122,254,.18)" stroke-width="6"/>';
-  s += '<text x="210" y="120" text-anchor="middle" fill="#6f9dff" font-size="10.5">交流母线</text>';
-  s += '<text x="210" y="138" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">' +
-       Math.max(0, Math.min(k, pv)).toFixed(0) + '<tspan font-size="9.5" fill="#8b91a0"> kW</tspan></text>';
-  s += '<text x="150" y="82" text-anchor="middle" fill="#5fd97f" font-size="10">' + pv.toFixed(1) + '</text>';
-  s += '<text x="270" y="82" text-anchor="middle" fill="#5aa8ff" font-size="10">' + load.toFixed(1) + '</text>';
-  s += '<text x="150" y="170" text-anchor="middle" fill="#c98cff" font-size="10">' + Math.abs(grid).toFixed(1) + '</text>';
-  s += '<text x="270" y="170" text-anchor="middle" fill="#ffb340" font-size="10">' + Math.abs(bat).toFixed(1) + '</text>';
+  s += '<text x="210" y="120" text-anchor="middle" fill="var(--accent-text,#6f9dff)" font-size="10.5">交流母线</text>';
+  s += '<text x="210" y="138" text-anchor="middle" fill="var(--sim-plot-text,#fff)" font-size="14" font-weight="700">' +
+       Math.max(0, Math.min(k, pv)).toFixed(0) + '<tspan font-size="9.5" fill="var(--sim-plot-label,#8b91a0)"> kW</tspan></text>';
+  s += '<text x="150" y="82" text-anchor="middle" fill="var(--sim-pv,#5fd97f)" font-size="10">' + pv.toFixed(1) + '</text>';
+  s += '<text x="270" y="82" text-anchor="middle" fill="var(--sim-load,#5aa8ff)" font-size="10">' + load.toFixed(1) + '</text>';
+  s += '<text x="150" y="170" text-anchor="middle" fill="var(--sim-grid,#c98cff)" font-size="10">' + Math.abs(grid).toFixed(1) + '</text>';
+  s += '<text x="270" y="170" text-anchor="middle" fill="var(--sim-bat,#ffb340)" font-size="10">' + Math.abs(bat).toFixed(1) + '</text>';
   nodes.forEach(n => { s += flowNode(n, n.c); });
   return s + '</svg>';
 }
@@ -862,7 +862,7 @@ function simChartSVG(){
   if (!SIM) return '';
   const d = SIM.hist;
   const W = 404, H = 122, L = 30, R = W - 6, T = 8, B = 100;
-  if (d.length < 2) return '<div style="color:#5f6675;font-size:12px;padding:20px 4px;text-align:center">采样中…</div>';
+  if (d.length < 2) return '<div style="color:var(--muted);font-size:12px;padding:20px 4px;text-align:center">采样中…</div>';
   let maxV = 40;
   d.forEach(p => { maxV = Math.max(maxV, p.pv, p.load, Math.abs(p.bat), Math.abs(p.grid)); });
   const yMax = Math.ceil(maxV / 40) * 40;
@@ -871,8 +871,8 @@ function simChartSVG(){
   let s = '<svg viewBox="0 0 ' + W + ' ' + H + '">';
   for (let i = 0; i <= 3; i++) {
     const gy = (T + (B - T) * i / 3).toFixed(1);
-    s += '<line x1="' + L + '" y1="' + gy + '" x2="' + R + '" y2="' + gy + '" stroke="#262b36" stroke-width="1" stroke-dasharray="3 4"/>';
-    s += '<text x="' + (L - 5) + '" y="' + (+gy + 3.5) + '" fill="#5f6675" font-size="9" text-anchor="end">' + Math.round(yMax * (1 - i / 3)) + '</text>';
+    s += '<line x1="' + L + '" y1="' + gy + '" x2="' + R + '" y2="' + gy + '" stroke="var(--sim-plot-grid,#262b36)" stroke-width="1" stroke-dasharray="3 4"/>';
+    s += '<text x="' + (L - 5) + '" y="' + (+gy + 3.5) + '" fill="var(--sim-plot-label,#5f6675)" font-size="9" text-anchor="end">' + Math.round(yMax * (1 - i / 3)) + '</text>';
   }
   const line = (key, color, w, dash) => {
     const pts = d.map((p, i) => x(i).toFixed(1) + ',' + y(p[key]).toFixed(1)).join(' ');
@@ -880,10 +880,10 @@ function simChartSVG(){
   };
   const area = d.map((p, i) => x(i).toFixed(1) + ',' + y(p.pv).toFixed(1)).join(' ');
   s += '<polygon points="' + L + ',' + B + ' ' + area + ' ' + R + ',' + B + '" fill="rgba(48,209,88,.12)"/>';
-  s += line('pv', '#30d158', 2);
-  s += line('load', '#0a84ff', 1.8);
-  s += line('bat', '#ff9f0a', 1.5, true);
-  s += line('grid', '#bf5af2', 1.2, true);
+  s += line('pv', 'var(--sim-pv,#30d158)', 2);
+  s += line('load', 'var(--sim-load,#0a84ff)', 1.8);
+  s += line('bat', 'var(--sim-bat,#ff9f0a)', 1.5, true);
+  s += line('grid', 'var(--sim-grid,#bf5af2)', 1.2, true);
   return s + '</svg>';
 }
 function esc(s){
@@ -928,7 +928,7 @@ function renderPlantList(){
           '<span>今日 ' + p.dayPv.toFixed(0) + ' 度</span>' +
           '<b>' + p.pv.toFixed(1) + ' kW</b></div>' +
         '<div class="stats" style="margin-top:3px"><span>' + TYPE_NAME[p.type] + ' · ' + MODE_NAME[p.mode] + '</span>' +
-          '<span style="color:#ffd60a">' + fmtMoney(p, p.dayRev) + '</span></div>' +
+          '<span style="color:var(--sim-revenue,#ffd60a)">' + fmtMoney(p, p.dayRev) + '</span></div>' +
         '<div class="stats card-foot"><span>开始 ' + pad2(p.start.mo) + '/' + pad2(p.start.dd) + ' ' + pad2(p.start.hh) + ':00 · SOC ' + p.socMin + '–' + p.socMax + '%</span>' +
           '<span style="display:flex;gap:5px;flex-shrink:0">' +
             '<span class="card-edit" onclick="event.stopPropagation();openEdit(\'' + p.id + '\')">编辑</span>' +
@@ -1526,7 +1526,7 @@ function sharePlant(id){
     const t = document.getElementById('toast');
     if (t) {
       t.innerHTML = '<div style="max-width:min(86vw,560px);word-break:break-all;text-align:left">'
-        + '已生成分享链接，请手动复制：<br><span style="color:#7fa8ff">' + esc(url) + '</span></div>';
+        + '已生成分享链接，请手动复制：<br><span style="color:var(--accent-text)">' + esc(url) + '</span></div>';
       t.classList.add('show');
       clearTimeout(toast._t);
       toast._t = setTimeout(() => { t.classList.remove('show'); }, 20000);

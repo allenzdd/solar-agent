@@ -24,7 +24,7 @@
     const points = g.days.map((d, i) => `${x(i)},${y(d.totals.dayPv)}`).join(' ');
     svg += `<polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round"/>`;
     g.days.forEach((d, i) => {
-      svg += `<circle cx="${x(i)}" cy="${y(d.totals.dayPv)}" r="${d.complete === false ? 4.5 : 2.3}" fill="${d.complete === false ? '#d69736' : color}"><title>${esc(d.date)}：${fmt(d.totals.dayPv)} kWh${d.complete === false ? '（截止时间前累计）' : ''}</title></circle>`;
+      svg += `<circle cx="${x(i)}" cy="${y(d.totals.dayPv)}" r="${d.complete === false ? 4.5 : 2.3}" fill="${d.complete === false ? 'var(--sim-warning,#d69736)' : color}"><title>${esc(d.date)}：${fmt(d.totals.dayPv)} kWh${d.complete === false ? '（截止时间前累计）' : ''}</title></circle>`;
       if (i % 15 === 0 || i === g.days.length - 1) svg += `<text x="${x(i)}" y="${height - 12}" font-size="11" fill="currentColor" opacity=".7" text-anchor="middle">${esc(d.date.slice(5))}</text>`;
     });
     return svg + '</svg>';
@@ -44,7 +44,7 @@
     groups.forEach((g, i) => {
       const card = make('article', 'mh-card'); card.append(make('h3', '', g.name));
       card.append(make('p', 'sp-tip', `${g.days.length} 天数据 · 区间发电量 ${fmt(g.days.reduce((s, d) => s + d.totals.dayPv, 0))} kWh`));
-      const plot = make('div', 'mh-plot'); plot.innerHTML = graph(g, i % 2 ? '#30b98a' : '#5997e8'); card.append(plot); charts.append(card);
+      const plot = make('div', 'mh-plot'); plot.innerHTML = graph(g, i % 2 ? 'var(--sim-history-b,#30b98a)' : 'var(--sim-history-a,#5997e8)'); card.append(plot); charts.append(card);
     });
     const dates = [...new Set(groups.flatMap(g => g.days.map(d => d.date)))].sort();
     picker.min = dates[0]; picker.max = dates.at(-1);
