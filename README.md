@@ -2,6 +2,8 @@
 
 监控页面、光储仿真台与服务端模型接口。默认模型为 `deepseek-flash`，密钥只由后端读取。Node.js 20.12+，无第三方运行依赖。
 
+已加入可多轮调用电站工具的 Agent loop，以及统一电站 REST 接口。架构、工具清单、数据能力边界和配置见 [Agent 架构与接口说明](docs/agent-architecture.md)。接口描述可在运行后访问 `/api/workspace/data/openapi.json`。
+
 ## 启动
 
 - Windows：双击 `start-local.cmd`。

@@ -11,3 +11,4 @@ dist/
 data/
 lt-*.log
 .test-data/
+.deploy/

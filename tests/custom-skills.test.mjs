@@ -57,7 +57,7 @@ function ui(store=new Map(),request,modelChat){
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 test('creation prefills five settings while a changed one-station task still runs its own prompt',async()=>{
-  const u=ui();u.c.CustomSkills.open();u.click('＋ 创建技能');
+  const u=ui();u.c.CustomSkills.open();u.click('＋ 创建 Skill');
   const form=u.app.querySelector('form');
   const fields=form.querySelectorAll('.sk-field').map(n=>n.children[0].textContent);
   assert.deepEqual(fields,['技能名称','一句话说明','详细提示词','周期']);assert.equal(form.querySelectorAll('h4')[0].textContent,'参与的电站');
@@ -83,10 +83,10 @@ test('new conversation prevents late model insertion and stop cancels data loadi
   const v=ui(savedComparison(),(_,options)=>new Promise((yes,no)=>options.signal.addEventListener('abort',()=>no(new Error('aborted')))));v.c.CustomSkills.handle('运行技能：多电站横向对比');v.c.abortCtl.abort();await tick();assert.equal(v.c.generating,false);assert.equal(v.calls.length,0);assert.ok(v.chat.textContent.includes('已停止技能'));
 });
 test('secondary menu hosts memory, strategies and subscriptions with working callbacks',()=>{
-  const u=ui(),opened=[];u.c.OwnerMemory={open:()=>opened.push('memory')};u.c.StrategyDemo={open:()=>opened.push('strategy')};u.c.SubscriptionDemo={open:()=>opened.push('subscription')};vm.runInContext(source('xiaoyuan-menu.js'),u.c);
-  const trigger=u.top.querySelector('.xy-more-trigger'),menu=u.app.querySelector('.xy-more-menu');assert.equal(menu.hidden,true);assert.equal(u.top.querySelectorAll('.sk-header-entry').length,1);
-  for(let i=0;i<3;i++){trigger.click();assert.equal(menu.hidden,false);menu.querySelectorAll('button')[i].click();assert.equal(menu.hidden,true);}
-  assert.deepEqual(opened,['memory','strategy','subscription']);trigger.click();u.app.listeners.keydown({key:'Escape',preventDefault(){}});assert.equal(menu.hidden,true);assert.equal(u.doc.activeElement,trigger);
+  const u=ui(),opened=[];u.c.SimpleDesign={open:()=>opened.push('design')};u.c.OwnerMemory={open:()=>opened.push('memory')};u.c.StrategyDemo={open:()=>opened.push('strategy'),manageApplied:()=>opened.push('issued')};u.c.SubscriptionDemo={open:()=>opened.push('subscription')};vm.runInContext(source('xiaoyuan-menu.js'),u.c);
+  const trigger=u.top.querySelector('.xy-more-trigger'),menu=u.app.querySelector('.xy-more-menu');assert.equal(menu.hidden,true);assert.equal(u.top.querySelectorAll('.sk-header-entry').length,0);
+  for(let i=0;i<5;i++){trigger.click();assert.equal(menu.hidden,false);menu.querySelectorAll('button')[i].click();assert.equal(menu.hidden,true);}
+  assert.deepEqual(opened,['design','memory','strategy','issued','subscription']);trigger.click();u.app.listeners.keydown({key:'Escape',preventDefault(){}});assert.equal(menu.hidden,true);assert.equal(u.doc.activeElement,trigger);
   for(const file of ['owner-memory.js','strategies.js','subscriptions.js'])assert.equal(source(file).includes('before(shortcut)'),false);
 });
 test('My Skill capsule sits beside questions, shows every skill and runs enabled items',async()=>{
@@ -104,8 +104,19 @@ test('My Skill capsule sits beside questions, shows every skill and runs enabled
 test('capsule synchronizes create, rename and delete; empty state provides creation',()=>{
   const u=ui(new Map([['xy-installer-skills-v1','[]']]));vm.runInContext(source('owner-memory.js'),u.c);
   const panel=()=>u.doc.getElementById('sk-shortcut-panel');u.doc.getElementById('sk-shortcut-toggle').click();assert.ok(panel().textContent.includes('还没有创建技能'));
-  u.click('＋ 创建技能',panel());u.inputFor('技能名称').value='我的新任务';u.inputFor('详细提示词').value='写三条巡检建议';u.app.querySelector('form').listeners.submit({preventDefault(){}});
+  u.click('＋ 创建 Skill',panel());
+  const originalFields=u.app.querySelector('form').querySelectorAll('.sk-field').map(n=>n.children[0].textContent);
+  u.inputFor('技能名称').value='我的新任务';u.inputFor('详细提示词').value='写三条巡检建议';u.app.querySelector('form').listeners.submit({preventDefault(){}});
+  assert.equal(u.app.querySelector('.sk-layer').hidden,true);
+  assert.equal(panel().hidden,false);
+  assert.equal(u.doc.activeElement,u.doc.getElementById('sk-shortcut-toggle'));
   assert.equal(panel().querySelectorAll('.sk-shortcut-item').length,1);assert.ok(panel().textContent.includes('我的新任务'));
+  u.click('＋ 创建 Skill',panel());
+  assert.deepEqual(u.app.querySelector('form').querySelectorAll('.sk-field').map(n=>n.children[0].textContent),originalFields);
+  u.click('‹ 返回',u.app.querySelector('.sk-layer'));
+  assert.equal(u.app.querySelector('.sk-layer').hidden,true);
+  assert.equal(panel().querySelectorAll('.sk-shortcut-item').length,1);
+  u.click('管理技能',panel());
   u.click('编辑',u.card('我的新任务'));u.inputFor('技能名称').value='改名后的任务';u.app.querySelector('form').listeners.submit({preventDefault(){}});assert.ok(panel().textContent.includes('改名后的任务'));assert.equal(panel().textContent.includes('我的新任务'),false);
   u.click('删除',u.card('改名后的任务'));assert.equal(panel().querySelectorAll('.sk-shortcut-item').length,0);assert.ok(panel().textContent.includes('还没有创建技能'));
   u.c.OwnerMemory.newSession();assert.equal(panel().hidden,true);
@@ -113,7 +124,7 @@ test('capsule synchronizes create, rename and delete; empty state provides creat
 test('comparison exists only after explicit save; no typing creates a persistent user skill',()=>{
   const u=ui();vm.runInContext(source('owner-memory.js'),u.c);u.c.CustomSkills.open();
   assert.equal(u.app.querySelectorAll('.sk-library-card').length,0);assert.equal(u.doc.getElementById('sk-shortcut-panel').querySelectorAll('.sk-shortcut-item').length,0);
-  u.click('＋ 创建技能');assert.equal(u.inputFor('技能名称').value,'横向对比电站 Skill');assert.ok(u.inputFor('一句话说明').value.length>0);assert.ok(u.inputFor('详细提示词').value.length>100);
+  u.click('＋ 创建 Skill');assert.equal(u.inputFor('技能名称').value,'横向对比电站 Skill');assert.ok(u.inputFor('一句话说明').value.length>0);assert.ok(u.inputFor('详细提示词').value.length>100);
   assert.equal(u.store.has('xy-installer-skills-v1'),false);u.app.querySelector('form').listeners.submit({preventDefault(){}});
   const saved=JSON.parse(u.store.get('xy-installer-skills-v1'));assert.equal(saved.length,1);assert.notEqual(saved[0].id,'installer-compare');assert.equal(saved[0].name,'横向对比电站 Skill');assert.equal(saved[0].days,7);assert.equal(saved[0].plants.length,0);
   assert.ok(u.doc.getElementById('sk-shortcut-panel').textContent.includes('横向对比电站 Skill'));

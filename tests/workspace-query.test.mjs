@@ -25,16 +25,16 @@ test('current data uses authoritative normal/drill telemetry and operations enfo
  assert.equal(result.results[0].data.activeLoginSessionCount,1);assert.doesNotMatch(JSON.stringify(result),new RegExp(secret));assert.equal(result.results[3].data.rows[0].status,'archived');
  assert.ok((await query({scope:'config',plantIds:['missing']})).error);
 });
-test('chat selects server read tools then streams an answer using retrieved history, not browser placeholders',async()=>{
- const calls=[];let finish;
+test('chat selects server read tools then answers using retrieved history, not browser placeholders',async()=>{
+ const calls=[];
  const api=createApi({now:()=>utc,fetchImpl:async(url,options)=>{
   const payload=JSON.parse(options.body);calls.push(payload);
-  if(payload.tools)return Response.json({choices:[{message:{role:'assistant',content:null,tool_calls:[{id:'query-1',type:'function',function:{name:'query_workspace',arguments:JSON.stringify({queries:[{scope:'history',plantIds:['P3'],month:'2026-10',resolution:'summary'}]})}}]}}]});
-  return new Response(new ReadableStream({start(c){finish=c;c.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"300 kWh"}}]}\n\n'));}}));
+  if(calls.length===1)return Response.json({choices:[{message:{role:'assistant',content:null,tool_calls:[{id:'query-1',type:'function',function:{name:'query_workspace',arguments:JSON.stringify({queries:[{scope:'history',plantIds:['P3'],month:'2026-10',resolution:'summary'}]})}}]}}]});
+  return Response.json({choices:[{message:{role:'assistant',content:'300 kWh'},finish_reason:'stop'}]});
  }});
- const request=new Request('http://solar.test/api/workspace/chat',{method:'POST',body:JSON.stringify({messages:[{role:'system',content:'浏览器示意数据999999；'+secret},{role:'user',content:'济宁10月发电多少？'}],stream:true})});
+ const request=new Request('http://solar.test/api/workspace/chat',{method:'POST',body:JSON.stringify({messages:[{role:'system',content:'浏览器示意数据999999；'+secret},{role:'user',content:'济宁10月发电多少？'}],stream:false})});
  const response=await api(request,{DEEPSEEK_API_KEY:'provider-secret'},{workspaceStore:store});
  assert.equal(response.headers.get('X-Solar-Data-Source'),'server-query');assert.equal(calls.length,2);assert.doesNotMatch(JSON.stringify(calls),/999999|must-never-appear/);
  const tool=JSON.parse(calls[1].messages.find(m=>m.role==='tool').content);assert.equal(tool.results[0].data.byPlant[0].totals.dayPv,300);
- const reader=response.body.getReader();assert.match(new TextDecoder().decode((await reader.read()).value),/300 kWh/);finish.close();assert.equal((await reader.read()).done,true);
+ assert.equal((await response.json()).choices[0].message.content,'300 kWh');
 });

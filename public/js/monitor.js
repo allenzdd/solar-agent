@@ -33,13 +33,43 @@ const BASE_DEVICES = [];
 /* 运行时数组：仿真设备（每站 4 台）+ 预置设备 */
 const devices = [];
 const sugs = [
-  ["我名下有哪些电站","看看现在的功率曲线","用柱状图看光伏功率"],
-  ["光伏和负载的实时功率曲线","今天一共发了多少电","当前有哪些告警"],
-  ["查看电站并网时间","储能 SOC 区间怎么调","哪些设备需要关注"],
-  ["调整电站参数","把装机容量改成 500 kWp","上网电价改成 0.4 元"],
-  ["容配比调到 1.35","储能时长改成 3 小时","系统效率改成 82%"],
-  ["负载峰值调到 400 kW","当前 SOC 设成 60%","电站停机"],
+  [
+    ['overview', '电站总览', '我名下有哪些电站？'],
+    ['solar', '今日发电', '今天一共发了多少电？'],
+    ['revenue', '今日收益', '今天各电站的收益怎么样？'],
+    ['alarm', '设备告警', '当前有哪些设备告警？'],
+  ],
+  [
+    ['power', '实时功率', '看看现在的功率曲线'],
+    ['chart', '历史发电', '过去7天各电站的发电量是多少？'],
+    ['chart', '电站对比', '哪个电站今天发电最多？'],
+    ['battery', '储能电量', '各电站当前的储能 SOC 是多少？'],
+  ],
+  [
+    ['revenue', '历史收益', '苏州仿真电站上个月收益多少？'],
+    ['overview', '电站状态', '哪些电站在线？'],
+    ['power', '功率趋势', '看一下光伏和负载的实时功率曲线'],
+    ['report', '设备清单', '苏州仿真电站有哪些设备？'],
+  ],
 ];
+const welcomeSkills = [
+  ['design', '简易设计', '按屋顶面积和年用电量生成定容报告'],
+  ['battery', '策略优化', '选择电站和充放电目标'],
+  ['health', '健康诊断', '查看指定电站的设备健康状态'],
+  ['report', '订阅月报', '选择月报推送日期和时间'],
+];
+const welcomeIcons = {
+  overview: ['blue', 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z'],
+  solar: ['amber', 'M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0z M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M19 5l-1.5 1.5m-11 11L5 19'],
+  revenue: ['mint', 'M3 7h16a2 2 0 0 1 2 2v10H5a2 2 0 0 1-2-2V7zm0 0 13-4v4m5 4h-5v4h5'],
+  alarm: ['amber', 'M12 3 2 20h20L12 3zm0 6v5m0 2.5v.5'],
+  power: ['violet', 'M2 13h5l3-8 4 14 3-8h5'],
+  chart: ['blue', 'M4 4v16h17M8 15v-4m5 4V7m5 8V4'],
+  battery: ['violet', 'M3 6h16v12H3z M22 10v4m-11-6-3 5h5l-2 3'],
+  report: ['blue', 'M5 3h10l4 4v14H5z M14 3v5h5M8 12h8m-8 4h6'],
+  design: ['blue', 'M3 20 20 3v17H3zm8-4h5v-5'],
+  health: ['mint', 'M12 2 4 5v6c0 5 4 8 8 11 4-3 8-6 8-11V5z M8 12l3 3 5-6'],
+};
 const lvIcon = {
   imp:  '<span class="ic" style="background:rgba(255,159,10,.18)"><svg width="15" height="15" viewBox="0 0 24 24" fill="#ff9f0a"><path d="M12 2.5 22 20H2L12 2.5zM11 9.5v5h2v-5h-2zm0 6.5v2h2v-2h-2z"/></svg></span>',
   hint: '<span class="ic" style="background:rgba(10,132,255,.18)"><svg width="15" height="15" viewBox="0 0 24 24" fill="#0a84ff"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4.5" fill="#fff"/></svg></span>',
@@ -669,6 +699,7 @@ function pdRender(){
   const s = stations[pdIdx];
   const el = document.getElementById('plant-detail');
   if (!s || !el) return;
+  el.dataset.plantId=s.pid||'';
   const p = pdPlantOf(s);
   const billTariff = readBillTariff(s.pid);
   const t = (p && p.tariff) || {};
@@ -717,7 +748,7 @@ function pdRender(){
       pdMetric('rated', '逆变器额定功率', pdNumber(p?.invKw), 'kW') +
       pdMetric('total', '累计发电量', pdNumber(kwhTotal / 10000), '万度') +
     '</div><div class="pd-period"><div>本月发电 <b data-pd="mon">' + monthPv + '</b> 度</div><div>年内发电 <b data-pd="year">' + yearPv + '</b> 度</div></div>' +
-    '<div class="pd-note">电量按已仿真时段累计</div>' +
+    '<div class="pd-note" data-pd="data-note">'+(p?.intentScenario?'冬季遮挡场景 · 发电量与收益已同步到小源解释':'电量按已仿真时段累计')+'</div>' +
     '</details>' +
     pdChartCards(s) +
     (globalThis.ProductionStrategy?.stationCard(s.pid) || '') +
@@ -792,6 +823,7 @@ function refreshPlantDetail(){
     pdSet('rated', pdNumber(p.invKw));
     pdSet('day', p.dayPv.toFixed(2));
     pdSet('rev', sym + (p.dayRev || 0).toFixed(2));
+    pdSet('data-note',p.intentScenario?'冬季遮挡场景 · 发电量与收益已同步到小源解释':'电量按已仿真时段累计');
     pdSet('mon', Number.isFinite(p.energyTotals?.monthPvKwh) ? p.energyTotals.monthPvKwh.toFixed(2) : '—');
     pdSet('year', Number.isFinite(p.energyTotals?.yearPvKwh) ? p.energyTotals.yearPvKwh.toFixed(2) : '—');
     const kwh = p.totalBase + p.dayPv;
@@ -1116,12 +1148,76 @@ document.addEventListener('click', e => {
   if (!menu.contains(e.target) && !e.target.closest('#dev-sort-btn')) closeSortMenu();
 });
 let sugIdx = 0;
+let welcomeSection = 'questions';
 function renderSugs(){
-  document.getElementById('xy-sugs').innerHTML =
-    sugs[sugIdx % sugs.length].map(q=>`<div class="xy-sug" onclick="askAI('${q}')">${q}</div>`).join('');
-  sugIdx++;
+  const questions = welcomeSection === 'questions';
+  document.getElementById('xy-questions-tab').setAttribute('aria-pressed', String(questions));
+  document.getElementById('xy-skills-tab').setAttribute('aria-pressed', String(!questions));
+  document.getElementById('xy-refresh').hidden = !questions;
+
+  const cards = questions ? sugs[sugIdx] : welcomeSkills;
+  const buttons = cards.map(([icon, title, caption, query = caption]) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'xy-sug';
+    const symbol = document.createElement('span');
+    symbol.className = 'xy-sug-icon';
+    const [tone, path] = welcomeIcons[icon];
+    symbol.setAttribute('data-tone', tone);
+    symbol.innerHTML = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="' + path + '"/></svg>';
+    symbol.setAttribute('aria-hidden', 'true');
+    const copy = document.createElement('span');
+    copy.className = 'xy-sug-copy';
+    const name = document.createElement('strong');
+    name.textContent = title;
+    const hint = document.createElement('span');
+    hint.textContent = caption;
+    copy.append(name, hint);
+    button.append(symbol, copy);
+    button.addEventListener('click', () => questions ? askWelcome(query) : openChatSkill(icon));
+    return button;
+  });
+  document.getElementById('xy-sugs').replaceChildren(...buttons);
 }
-function refreshSugs(){ renderSugs(); toast('已换一批推荐问题'); }
+function selectWelcome(section){
+  welcomeSection = section;
+  renderSugs();
+}
+function refreshSugs(){
+  sugIdx = (sugIdx + 1) % sugs.length;
+  renderSugs();
+}
+function canAskWelcome(){
+  if (generating) { toast('请等待当前回答完成后再提问'); return false; }
+  if (pendingImgs.length || globalThis.ProductionStrategy?.hasFile() || globalThis.MultimodalDemo?.isPreparing()) {
+    toast('请先发送或移除附件，再使用快捷提问');
+    return false;
+  }
+  const input = document.getElementById('xy-input');
+  if (input.value.trim()) {
+    input.focus();
+    toast('输入框中还有草稿，请先发送或清空');
+    return false;
+  }
+  return true;
+}
+function askWelcome(query){
+  if (canAskWelcome()) askAI(query);
+}
+function openChatSkill(key, initial){
+  if (canAskWelcome()) ChatSkillSheet.open(key, initial);
+}
+
+function appendWelcomeShortcuts(heading){
+  for (const [key, title] of welcomeSkills) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'om-compact-label xy-welcome-skill';
+    button.textContent = title;
+    button.addEventListener('click', () => openChatSkill(key));
+    heading.append(button);
+  }
+}
 
 /* ---------- 小源对话 ---------- */
 const AI_REPLIES = [
@@ -1233,11 +1329,15 @@ function addMsgHTML(role, html){
 }
 function setBubbleText(el, text){
   const chat = document.getElementById('xy-chat');
+  const follow = isNearChatEnd(chat);
   const b = el.querySelector('.bubble');
   if (b.classList.contains('typing')) { b.classList.remove('typing'); b.innerHTML = ''; }
   if (el.classList.contains('ai')) renderChatMarkdown(b, text);
   else b.textContent = text;
-  chat.scrollTop = chat.scrollHeight;
+  if (follow) chat.scrollTop = chat.scrollHeight;
+}
+function isNearChatEnd(chat){
+  return chat.scrollHeight - chat.clientHeight - chat.scrollTop <= 40;
 }
 function showAnswerTime(row, started){
   if (!row?.isConnected || !row.classList.contains('ai')) return;
@@ -1245,18 +1345,15 @@ function showAnswerTime(row, started){
   const duration = seconds < 1 ? (seconds < 0.1 ? '不足0.1秒' : seconds.toFixed(1) + '秒') : Math.round(seconds) + '秒';
   const status = document.createElement('details');
   status.className = 'xy-answer-status';
-  status.innerHTML = '<summary><svg viewBox="0 0 24 24" aria-hidden="true">' +
-    '<circle cx="11" cy="4" r="3" fill="#65bfd5"/><circle cx="19" cy="10" r="3" fill="#f7a032"/>' +
-    '<circle cx="16" cy="19" r="3" fill="#ffd04f"/><circle cx="6" cy="19" r="3" fill="#1682f5"/>' +
-    '<circle cx="3" cy="10" r="3" fill="#985af4"/></svg>' +
-    '<span>回答完成（用时' + duration + '）</span></summary>' +
-    '<div class="xy-answer-detail">从开始处理到回复完成，共 ' + duration + '</div>';
+  status.innerHTML = '<summary><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg><span>回答完成（用时' + duration + '）</span></summary>' +
+    '<div class="xy-answer-detail">从收到提问到回答完成的总时长</div>';
+  const chat = row.parentElement;
+  const follow = isNearChatEnd(chat);
   row.classList.add('xy-timed-answer');
   const existing = row.querySelector(':scope > .xy-answer-status');
   if (existing) existing.replaceWith(status);
   else row.prepend(status);
-  const chat = row.parentElement;
-  chat.scrollTop = chat.scrollHeight;
+  if (follow) chat.scrollTop = chat.scrollHeight;
 }
 function timeLocalAnswer(answer, started){
   const chat = document.getElementById('xy-chat');
@@ -1492,7 +1589,7 @@ const ANSWER_RULES = [
   '3. 用户说「这些电站」「当前列表」「我筛选出来的」时，以【App 当前状态】里"列表当前可见"的电站为准；只问某电站时优先用【用户问题指向的电站】的字段。',
   '4. 列清单要列全，不要用"等"省略；数量多时可用「、」分隔成一行。',
   '5. 提到电站时用「」包住并带上状态，例如「容量费」（正常）。',
-  '6. 中文，先给结论再给要点，要点以「• 」开头，正文不超过 10 行。',
+  '6. 首句直接回答问题，可加粗最关键的数值及单位。简单问题用一小段；需要说明多项时用 Markdown 列表或表格，避免重复结论。',
   '7. 不编造设备型号、告警编号、补贴政策或收益承诺。',
   '8. 时间、日期、时区类问题必须用【当前时间】与电站字段里的「当地时间」，并按该站所在国家标注时区（如 UTC+08:00）；用户问与北京时间差多少，就按时区偏移算差值。严禁使用你自身的系统日期、训练数据里的日期或任何猜测。',
   '9. 用户想调整储能 SOC 区间时，直接告诉他可以在对话里的「储能 SOC 工作区间」标签框中拖动保存，并复述当前区间；不要声称自己无法修改。'
@@ -1550,7 +1647,6 @@ function langLabel(l){ return (LANG_NAME[l] || LANG_NAME.zh).zh; }
 
 function answerRules(lang){
   const arr = ANSWER_RULES.split('\n');
-  arr[5] = '6. ' + (lang === 'zh' ? '中文' : '使用' + langLabel(lang)) + '，先给结论再给要点，要点以「• 」开头，正文不超过 10 行。';
   arr.push('10. 【强制】用户本次提问使用的语言是' + langLabel(lang) +
     '，你的回答必须完整使用该语言，不得翻译成其他语言；电站名称、设备型号、数字与单位保持原样。');
   return arr.join('\n');
@@ -1587,14 +1683,16 @@ function setGenerating(on){
   btn.innerHTML = on
     ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>'
     : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>';
-  btn.style.color = '';
-  btn.style.opacity = '1';
+  updateSendTint();
   btn.title = on ? '停止生成' : '发送';
   btn.setAttribute('aria-label', btn.title);
 }
 async function askLLM(q, imgs){
   const started = performance.now();
   const hasImg = !!(imgs && imgs.length);
+  if (!hasImg && q.trim()==='转到人工客服') { globalThis.HumanSupportDemo?.handle(q,imgs); return; }
+  if (!hasImg && globalThis.AfterSales?.handle(q)) return;
+  if (!hasImg && globalThis.SimpleDesign?.handle(q)) return;
   if (!hasImg && globalThis.CustomSkills?.handle(q)) return;
   if (!hasImg && timeLocalAnswer(() => globalThis.TaskFollowDemo?.handle(q), started)) return;
   if (!hasImg && timeLocalAnswer(() => globalThis.DeviceParameterDemo?.handle(q), started)) return;
@@ -1686,8 +1784,8 @@ function sendMsg(){
   if (hasPlan && pendingImgs.length) { toast('请将排产 Excel 与照片或视频分开发送'); return; }
   if (!q && !pendingImgs.length && !hasPlan) { toast(T('请先输入问题', 'Please type a question first')); inp.focus(); return; }
   const imgs = pendingImgs.slice();
-  pendingImgs = []; renderAttach();
   inp.value = '';
+  pendingImgs = []; renderAttach();
   inp.style.height = 'auto';
   document.getElementById('xy-intro').classList.add('hide');
   document.getElementById('xy-chat').classList.add('on');
@@ -1708,6 +1806,12 @@ function askAI(q){
   sendMsg();
 }
 function newChat(){
+  resetChat();
+  toast('已开始新对话');
+}
+function resetChat(){
+  globalThis.ChatHistory?.save();
+  globalThis.AfterSales?.reset();
   globalThis.ProductionStrategy?.clear();
   pendingBillTariff = null;
   if (abortCtl) { abortCtl.abort(); }
@@ -1721,9 +1825,9 @@ function newChat(){
   document.getElementById('xy-chat').innerHTML = '';
   document.getElementById('xy-chat').classList.remove('on');
   document.getElementById('xy-intro').classList.remove('hide');
+  document.getElementById('xy-intro').scrollTop = 0;
   globalThis.OwnerMemory?.newSession();
-  renderSugs();
-  toast('已开始新对话');
+  selectWelcome('questions');
 }
 /* ---------- 交互 ---------- */
 let curTab = 'home';
@@ -1811,7 +1915,9 @@ function openXY(){
   globalThis.OwnerMemory?.render();
   const chat = document.getElementById('xy-chat');
   setTimeout(()=>{ chat.scrollTop = chat.scrollHeight; }, 30);
-  setTimeout(()=>document.getElementById('xy-input').focus(), 120);
+  if (window.matchMedia('(pointer: fine)').matches) {
+    setTimeout(()=>{ if (document.getElementById('xiaoyuan').classList.contains('open')) document.getElementById('xy-input').focus(); }, 120);
+  }
 }
 function closeXY(){
   globalThis.XiaoyuanMenu?.close();
@@ -1850,7 +1956,7 @@ function updateSendTint(){
   if (!b) return;
   const inp = document.getElementById('xy-input');
   const has = (inp && inp.value.trim().length > 0) || pendingImgs.length > 0 || globalThis.ProductionStrategy?.hasFile();
-  b.style.opacity = has ? '1' : '.55';
+  b.style.opacity = generating || has ? '1' : '.55';
   b.style.color = '';
 }
 
@@ -3590,7 +3696,7 @@ async function loadSimState(){
   if (!data || !Array.isArray(data.plants)) { updateBridgeTip(); return; }
   if (data.v !== 3 && data.v !== 2) return;
   if (data.v === 2) normalizeSnapshotV2(data);
-  if (SIMSTATE && SIMSTATE.ts === data.ts) { updateBridgeTip(); return; }
+  if (SIMSTATE && SIMSTATE.ts === data.ts && SIMSTATE.viewRevision === data.viewRevision) { updateBridgeTip(); return; }
   SIMSTATE = data;
   TIME.t = data.time.utc != null ? data.time.utc / 60000 : 0;
   TIME.day = data.time.day;
@@ -3703,6 +3809,7 @@ setInterval(tickSbTime, 15000);
 if (location.hash === '#stat') switchHome('stat');
 else if (location.hash === '#dev') go('dev');
 else if (location.hash === '#ops') go('ops');
+else if (location.hash === '#xiaoyuan') openXY();
 
 renderStations('all'); renderAlarms(); renderDevices(); renderSugs(); renderBars('day'); renderRank(); updateScopeChip(); initializeAI();
 refreshChips(); renderAlarmSummary();

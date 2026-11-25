@@ -54,6 +54,9 @@
     <div class="reminder-lab-row"><label for="reminder-plant">演练电站</label><select id="reminder-plant"></select><button type="button" data-reminder-scenario="saving">省钱机会 · 谷充峰放</button><button type="button" data-reminder-scenario="monthly_report">上月运营报告</button><button type="button" data-reminder-scenario="storage_upgrade">增购储能建议</button><button type="button" data-reminder-scenario="weather_backup">天气风险 · 提高备用电</button><button type="button" data-reminder-scenario="heat">电池温升提醒</button><button type="button" data-reminder-scenario="inverter_heat">逆变器过热风险</button><button type="button" data-reminder-scenario="typhoon">台风预警演练</button><button type="button" data-reminder-scenario="clear">结束所选电站全部演练</button><button type="button" id="reminder-reset">重置全部演示提醒</button></div>
     <p class="sp-tip">重置全部：结束所有电站的演练，并收起当前所有提醒气泡（包含月报）；历史报告保留。后续新事件仍会正常提醒。</p>
     <p id="reminder-lab-status" class="sp-tip" role="status"></p>
+    <div class="reminder-lab-row"><strong>主动感知意图 · 苏州电站</strong><button type="button" data-intent-action="trigger">触发冬季遮挡 · 收益偏低</button><button type="button" data-intent-action="restore">恢复正常 · 收起意图提醒</button></div>
+    <p class="sp-tip">自然因素场景：晴天、设备正常，冬季低太阳高度造成南侧阴影变长。仅在 APP 苏州电站详情页停留约3秒后提醒；同一次事件在同一浏览器只提醒一次，再次触发可重放。触发后 APP 发电量、收益和小源解释同步为遮挡场景数据，收益按电站电价计算；恢复正常后返回原快照，历史不改写。</p>
+    <p id="intent-lab-status" class="sp-tip" role="status"></p>
   </details>
   <!-- ================= 电站列表 ================= -->
   <div class="sim-view" id="view-list">
@@ -302,7 +305,7 @@
 
 <section class="wrap manager-history" aria-label="历史每日发电量曲线">
   <div class="sim-sec">
-    <div class="mh-head"><h2>近 90 天每日发电量</h2><button type="button" id="mh-refresh">刷新历史数据</button></div>
+    <div class="mh-head"><h2>历史每日发电量</h2><button type="button" id="mh-refresh">刷新历史数据</button></div>
     <p class="sp-tip" id="mh-range" role="status">正在加载历史仿真数据…</p>
     <div class="mh-picker"><label for="mh-date">查看某一天</label><input type="date" id="mh-date"><div id="mh-day"></div></div>
     <div id="mh-charts" class="mh-charts"></div>

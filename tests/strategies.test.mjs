@@ -19,6 +19,15 @@ test('all candidate strategies conserve battery energy and obey SOC and power li
   const shown=M.percentWeights({income:70,life:100,reserve:10});assert.equal(shown.income+shown.life+shown.reserve,100);
  }
 });
+test('a custom profit range outside the default initial SOC is carried through the schedule',()=>{
+ for(const [min,max] of [[65.5,90],[10,35],[0,100]]){
+  const p=M.parse(`请在 SOC ${min}%–${max}% 约束内，生成收益优先的充放电策略。`);
+  const result=M.solve(p,plant);
+  assert.deepEqual([p.min,p.max],[min,max]);
+  assert.equal(result.errors.length,0);
+  assert.ok(result.soc.every(point=>point.value>=min-1e-7&&point.value<=max+1e-7));
+ }
+});
 test('reserve claims require meeting the deadline and serving critical load; invalid or inadequate plans cannot be adopted',()=>{
  const good=M.solve(M.defaults('backup'),plant);assert.equal(good.feasible,true);assert.ok(good.reserveAtStart>=65-.01);
  assert.equal(M.solve({...M.defaults('backup'),criticalKw:1000},plant).feasible,false);

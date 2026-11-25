@@ -3,6 +3,7 @@
   'use strict';
   let token = '', owner = '', ready = false, session = null, uploading = false, configBusy = false;
   let pendingSnapshot = null, pendingConfig = null, lastSnapshotAt = 0, pollBusy = false;
+  let nextSnapshotAttemptAt = 0, snapshotFailures = 0;
   const seen = new Set(), pendingAcks = new Map();
   try {
     token = sessionStorage.getItem('solar_manager_token') || '';
@@ -33,6 +34,7 @@
       // The clock was restored too: keep its local day key, not the seed's initial day.
       plant.local = localTime(plant.tz, SIMTIME.utc); plant.dayKey = plant.local.dayKey;
       plant.inverterThermal=saved.inverterThermal||null;
+      if(saved.targetSoc){plant.targetSoc={...saved.targetSoc};plant.batMode=saved.batMode||'idle';}
       if (saved.geo && Number.isFinite(saved.geo.lat) && Number.isFinite(saved.geo.lng)) plant.geo = { ...saved.geo };
       if (Number.isFinite(saved.totalRev)) plant.totalRev = saved.totalRev - (saved.dayRev || 0);
       if (saved.hourly?.length === 24) plant.hourly = saved.hourly.slice();
@@ -77,10 +79,24 @@
     finally { configBusy = false; }
   }
   async function flushSnapshot() {
-    if (!ready || uploading || !pendingSnapshot || Date.now() - lastSnapshotAt < 2500) return;
+    if (!ready || uploading || !pendingSnapshot || Date.now() - lastSnapshotAt < 2500 || Date.now() < nextSnapshotAttemptAt) return;
     uploading = true; const snapshot = pendingSnapshot; pendingSnapshot = null;
-    try { await send('state', 'PUT', { owner, snapshot }); lastSnapshotAt = Date.now(); status('共享数据已更新 · ' + new Date().toLocaleTimeString()); }
-    catch (cause) { if (!pendingSnapshot) pendingSnapshot = snapshot; loseLease(cause); }
+    try {
+      try { await send('state', 'POST', { owner, snapshot }); }
+      catch (cause) {
+        if (cause.status !== 409) throw cause;
+        // Renew an expired lease without taking it from another active management page.
+        await send('lease', 'POST', { owner });
+        await send('state', 'POST', { owner, snapshot });
+      }
+      lastSnapshotAt = Date.now(); snapshotFailures = 0; nextSnapshotAttemptAt = 0;
+      status('共享数据已更新 · ' + new Date().toLocaleTimeString());
+    }
+    catch (cause) {
+      if (!pendingSnapshot) pendingSnapshot = snapshot;
+      snapshotFailures++; nextSnapshotAttemptAt = Date.now() + Math.min(30000, 3000 * 2 ** Math.min(snapshotFailures - 1, 4));
+      loseLease(cause);
+    }
     finally { uploading = false; }
   }
   async function commands() {
@@ -89,6 +105,9 @@
     try {
       const result = await send('commands', 'GET');
       applyThermal(result.thermal);
+      let targetChanged=false;
+      for(const setting of result.targetSocSettings||[])targetChanged=applyServerTargetSoc(setting)||targetChanged;
+      if(targetChanged){savePlantCfg();simRender();publishState();}
       for (const command of result.commands) {
         if (seen.has(command.id)) continue;
         seen.add(command.id); if (seen.size > 1000) seen.delete(seen.values().next().value);
@@ -125,6 +144,14 @@
     for(const data of plants){const p=PLANTS.find(p=>p.id===data.id);if(!p)continue;p.inverterThermal=data.inverterThermal||null;if(Number.isFinite(data.invTemp))p.invTemp=data.invTemp;}
   }
   const lab = document.getElementById('reminder-plant');
+  for(const button of document.querySelectorAll('[data-intent-action]'))button.addEventListener('click',async()=>{
+    const message=document.getElementById('intent-lab-status');
+    if(!ready){message.textContent='请先登录管理端。';return;}
+    button.disabled=true;
+    try{const result=await send('intent-event','POST',{action:button.dataset.intentAction});message.textContent=result.message;}
+    catch(cause){message.textContent=cause.message;}
+    finally{button.disabled=false;}
+  });
   let labPlants = '';
   function refreshLab() {
     if (!ready) return;

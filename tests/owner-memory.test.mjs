@@ -58,7 +58,7 @@ function ui(local=new Map(),session=new Map()){
     focus(){doc.activeElement=this;}
     click(){this.listeners.click?.({});}
   }
-  const nodes={};for(const id of ['xiaoyuan','xy-sugs','xy-input'])nodes[id]=new Element();
+  const nodes={};for(const id of ['xiaoyuan','xy-sugs','xy-input','xy-questions-tab','xy-skills-tab','xy-refresh'])nodes[id]=new Element();
   const top=new Element(),bottom=new Element(),intro=new Element(),chat=new Element(),fresh=new Element(),newButton=new Element('button');top.append(newButton);intro.append(nodes['xy-sugs']);bottom.append(nodes['xy-input']);nodes.xiaoyuan.append(top,intro,chat,bottom);
   const selectors={'.xy-top':top,'.xy-bottom':bottom,'.xy-new-chat':newButton,'.xy-refresh':fresh};
   doc.createElement=t=>new Element(t);doc.getElementById=id=>nodes[id];doc.querySelector=q=>selectors[q];
@@ -118,14 +118,23 @@ test('six recent presets are available without fabricated history; pinning does 
   assert.equal(M.presets(station,hidden).length,5);
   assert.ok(M.presets(station,hidden).every(r=>r.topic!=='temperature'));
 });
-test('three welcome questions and their refresh remain independent of personalized memory',()=>{
+test('welcome questions and skills remain independent of personalized memory',()=>{
   const u=ui(),monitor=fs.readFileSync(new URL('../public/js/monitor.js',import.meta.url),'utf8');
-  vm.runInContext(monitor.match(/const sugs = \[[\s\S]*?\n\];/)[0]+monitor.slice(monitor.indexOf('let sugIdx = 0;'),monitor.indexOf('/* ---------- 小源对话 ---------- */')),u.c);
+  vm.runInContext(monitor.slice(monitor.indexOf('const sugs ='),monitor.indexOf('const lvIcon'))+monitor.slice(monitor.indexOf('let sugIdx = 0;'),monitor.indexOf('/* ---------- 小源对话 ---------- */')),u.c);
   const home=u.nodes['xy-sugs'];u.c.renderSugs();
-  const first=home.innerHTML;assert.equal((first.match(/class="xy-sug"/g)||[]).length,3);assert.ok(first.includes('我名下有哪些电站'));assert.equal(home.hidden,false);
-  u.c.OwnerMemory.render();u.c.OwnerMemory.refresh();u.c.OwnerMemory.newSession();assert.equal(home.innerHTML,first);
-  const toggle=u.buttons().find(b=>b.attrs['aria-controls']==='om-recommendations');toggle.click();assert.equal(home.innerHTML,first);
-  u.c.refreshSugs();assert.notEqual(home.innerHTML,first);assert.equal((home.innerHTML.match(/class="xy-sug"/g)||[]).length,3);
-  const second=home.innerHTML;u.c.OwnerMemory.record('今天收益怎么样');assert.equal(home.innerHTML,second);
-  u.c.renderSugs();assert.equal((home.innerHTML.match(/class="xy-sug"/g)||[]).length,3);
+  const questions=()=>home.querySelectorAll('button').map(b=>b.children[1].children[1].textContent);
+  const first=questions();assert.equal(first.length,4);assert.ok(first.includes('我名下有哪些电站？'));
+  u.c.OwnerMemory.render();u.c.OwnerMemory.refresh();u.c.OwnerMemory.newSession();assert.deepEqual(questions(),first);
+  const toggle=u.buttons().find(b=>b.attrs['aria-controls']==='om-recommendations');toggle.click();assert.deepEqual(questions(),first);
+  u.c.refreshSugs();const second=questions();assert.notDeepEqual(second,first);
+  u.c.selectWelcome('skills');assert.equal(u.nodes['xy-refresh'].hidden,true);
+  u.nodes['xy-input'].value='还在写';
+  home.children[0].click();assert.equal(u.asks.length,0);assert.equal(u.nodes['xy-input'].value,'还在写');
+  u.nodes['xy-input'].value='';
+  const opened=[];
+  u.c.ChatSkillSheet={open:key=>opened.push(key)};
+  home.children[0].click();home.children[1].click();
+  assert.deepEqual(opened,['design','battery']);assert.equal(u.asks.length,0);
+  u.c.selectWelcome('questions');assert.deepEqual(questions(),second);
+  assert.equal(u.nodes['xy-refresh'].hidden,false);
 });

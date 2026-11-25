@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-const root = new URL('../', import.meta.url).pathname.replace(/^\/(\w:)/, '$1');
+import {fileURLToPath} from 'node:url';
+const root = fileURLToPath(new URL('../', import.meta.url));
 function engine(){const s=fs.readFileSync(root+'public/js/simulator.js','utf8');const c=vm.createContext({HIST_LEN:200});vm.runInContext(s.slice(0,s.indexOf('function simEvent('))+'\nglobalThis.e={makePlant,simStepPlant,inverterTemperature,SIMTIME}',c);return c.e;}
 test('rising temperature is based on simulated elapsed time, survives recreation and caps safely',()=>{
  const e=engine(), start=Date.UTC(2026,10,4,3);

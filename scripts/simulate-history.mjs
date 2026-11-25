@@ -13,7 +13,7 @@ export function rollingWindow(asOf, days = 90) {
   const todayStart = Date.parse(local + 'T00:00:00+08:00'), start = todayStart - (days - 1) * 86400000;
   return { start, end, window: { kind: 'rolling-days', days, asOf: new Date(end).toISOString(), startDate: new Date(start + 8 * 3600000).toISOString().slice(0, 10), endDate: local, timezone: 'Asia/Shanghai' } };
 }
-export async function simulateHistory(configs, { start, end, stepMinutes = 5 } = {}) {
+export async function simulateHistory(configs, { start, end, stepMinutes = 5, initialSocByPlant = {} } = {}) {
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || (end - start) > 370 * 86400000 || ![1, 5, 10, 15].includes(stepMinutes)) throw new Error('Invalid history interval');
   const source = await fs.readFile(new URL('../public/js/simulator.js', import.meta.url), 'utf8');
   const cut = source.indexOf('function simEvent('); if (cut < 0) throw new Error('Simulator core boundary missing');
@@ -28,11 +28,15 @@ export async function simulateHistory(configs, { start, end, stepMinutes = 5 } =
     p.id = config.id; p.seed = config.seed || 1;
     Object.assign(p, { cloud: config.cloud ?? .25, loadScale: config.loadScale ?? 1, batMode: config.batMode || 'auto', gridOut: !!config.gridOut });
     p.geo = cities[String(config.city).replace(/市$/, '')] || p.geo;
-    p.totalBase = 0; p.totalRev = 0; p.soc = Math.max(p.socMin, Math.min(p.socMax, 50));
+    const initialSoc = initialSocByPlant[config.id] ?? 50;
+    if (!Number.isFinite(initialSoc) || initialSoc < p.socMin || initialSoc > p.socMax) throw new Error('Invalid initial SOC: ' + config.id);
+    p.totalBase = 0; p.totalRev = 0; p.soc = initialSoc;
     const months = new Map();
     let lastDay = null;
-    for (let utc = start; utc < end; utc += stepMinutes * 60000) {
-      const dt = Math.min(stepMinutes, (end - utc) / 60000);
+    for (let utc = start; utc < end;) {
+      // A resumed partial interval must stop at the next grid boundary, never cross an hour/day.
+      const next = Math.min(end, (Math.floor(utc / (stepMinutes * 60000)) + 1) * stepMinutes * 60000);
+      const dt = (next - utc) / 60000;
       engine.SIMTIME.utc = utc;
       const lt = engine.localTime(p.tz, utc), date = lt.date.replaceAll('/', '-'), month = date.slice(0, 7), hour = lt.hh;
       let record = months.get(month);
@@ -54,7 +58,7 @@ export async function simulateHistory(configs, { start, end, stepMinutes = 5 } =
       lastDay.socMin = Math.min(lastDay.socMin, p.soc); lastDay.socMax = Math.max(lastDay.socMax, p.soc);
       cell.invTempStart ??= round(p.invTemp); cell.invTempEnd = round(p.invTemp); cell.invTempMax = Math.max(cell.invTempMax ?? -Infinity, round(p.invTemp));
       cell.minutes += dt; cell.socEnd = p.soc; cell.pvKwAvg = cell.totals.dayPv / (cell.minutes / 60);
-      record.steps++; record.endUtc = utc + dt * 60000;
+      record.steps++; record.endUtc = next; utc = next;
     }
     for (const record of months.values()) {
       for (const object of [record, ...record.daily, ...record.hourly]) {
@@ -65,7 +69,7 @@ export async function simulateHistory(configs, { start, end, stepMinutes = 5 } =
       const monthStart = Date.UTC(year, month - 1, 1) - 8 * 3600000, monthEnd = Date.UTC(year, month, 1) - 8 * 3600000;
       for (const day of record.daily) day.complete = record.endUtc >= Date.parse(day.date + 'T00:00:00+08:00') + 86400000;
       datasets.push({ ...record, completeMonth: record.startUtc === monthStart && record.endUtc === monthEnd, plantId: p.id, plantName: p.name, city: p.city, timezone: p.tz, geo: p.geo, cfg: p.cfg,
-        tariff: p.tariff, seed: p.seed, stepMinutes, initialSoc: 50, simulation: true,
+        tariff: p.tariff, seed: p.seed, stepMinutes, initialSoc, simulation: true,
         method: '现有光伏/负载/储能模型，按仿真时间积分；模型天气，城市中心近似坐标，非真实历史观测。' });
     }
   }

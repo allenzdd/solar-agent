@@ -7,7 +7,7 @@
     const error = new Error(payload.error?.message || '服务调用失败，请稍后重试'); error.status = response.status; throw error;
   }
   async function config() { return (await checked(await fetch('/api/config', { cache: 'no-store' }))).json(); }
-  async function chat({ messages, signal, onDelta, stream = true, maxTokens, onSource }) {
+  async function chat({ messages, signal, onDelta, stream = true, maxTokens, onSource, onAgentEvent }) {
     const response = await checked(await fetch('/api/workspace/chat', {
       credentials:'same-origin',
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages, stream, ...(maxTokens ? { max_tokens: maxTokens } : {}) }), signal,
@@ -23,6 +23,7 @@
       if (data === '[DONE]') { doneEvent = true; return; }
       const payload = JSON.parse(data);
       if (payload.error) throw new Error(payload.error.message || '模型生成中断');
+      if (payload.agent && onAgentEvent) onAgentEvent(payload.agent);
       const delta = payload.choices?.[0]?.delta?.content;
       if (typeof delta === 'string' && delta) { text += delta; if (onDelta) onDelta(text); }
     }

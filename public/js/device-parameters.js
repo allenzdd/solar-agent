@@ -18,10 +18,13 @@
     }));
   }
   function context(){
-    if(layer.hidden){SolarReminders.setContext(null);return;}
+    if(layer.hidden){SolarReminders.clearContext('device-parameters');return;}
     const invalid=issues();
+    if(mode==='storage'&&draft.target===100&&invalid.every(issue=>issue.key==='target')&&globalThis.EssSocSettings){
+      SolarReminders.setContext({owner:'device-parameters',kind:'soc-longevity',anchor:'bottom-right',attention:true,visible:!panel&&!document.getElementById('xiaoyuan').classList.contains('open'),actionLabel:'去对话',title:'目标 SOC 100%，建议日常留一点余量',summary:'长期维持满电可能增加电池老化压力。可查看85%的日常参考方案，并结合设备限制确认。',onOpen:openSocAdvice});return;
+    }
     SolarReminders.setContext({
-      kind:'device-parameters',anchor:'bottom-right',attention:invalid.length>0&&!panel,
+      owner:'device-parameters',kind:'device-parameters',anchor:'bottom-right',attention:invalid.length>0&&!panel,
       visible:(welcome||invalid.length>0)&&JSON.stringify(draft)!==dismissed&&!panel&&!document.getElementById('xiaoyuan').classList.contains('open'),
       actionLabel:'去对话',
       title:invalid.length?'发现'+recommendationLabel(invalid[0])+'配置超限':'小源正在陪你设置参数',
@@ -35,7 +38,8 @@
     if(!candidate){toast('请等待仿真管理端发布电站数据');return;}
     closeAppMenu();closeXY();plant=candidate;mode=deviceMode==='inverter'?'inverter':'storage';layer.hidden=false;load();
   }
-  function close(){panel?.remove();panel=null;layer.hidden=true;SolarReminders.setContext(null);}
+  function close(){panel?.remove();panel=null;layer.hidden=true;SolarReminders.clearContext('device-parameters');}
+  function openSocAdvice(){const pid=plant.id;close();globalThis.EssSocSettings.open(pid,{target:100});globalThis.EssSocSettings.explain();}
   function row(key,label,unit){
     const field=el('label','dp-field'),input=el('input'),wrap=el('span','dp-value');
     input.type='number';input.min='0';input.step='1';input.value=draft[key];input.setAttribute('aria-label',label);
@@ -70,11 +74,13 @@
       dismissed='';welcome=false;panel?.remove();panel=null;
       closeXY();render();
     }));
+    if(mode==='storage')tools.append(button('目标SOC设置',()=>{const pid=plant.id;close();globalThis.EssSocSettings?.open(pid);}));
     const footer=el('footer','dp-footer');footer.append(button('保存参数',save,'dp-primary'));
     body.append(station,tabs,card,hint,tools);layer.append(header,body,footer);context();
   }
   function recommend(){for(const issue of issues())draft[issue.key]=issue.recommended;panel?.remove();panel=null;dismissed='';welcome=false;render();toast('已回填推荐值，请核对后保存');}
   function save(){
+    if(mode==='storage'&&draft.target===100&&globalThis.EssSocSettings){openSocAdvice();return;}
     if(issues().length){diagnose();return;}
     try{localStorage.setItem(KEY+plant.id+':'+mode,JSON.stringify(draft));}
     catch{toast('当前浏览器无法保存参数');return;}
@@ -126,6 +132,7 @@
     panel.append(box);layer.append(panel);context();
   }
   function ask(){
+    if(mode==='storage'&&draft.target===100&&globalThis.EssSocSettings){openSocAdvice();return;}
     openXY();document.getElementById('xy-intro').classList.add('hide');document.getElementById('xy-chat').classList.add('on');
     const invalid=issues();
     const reply=addMsg('ai',plant.name+' · '+(mode==='storage'?'储能':'逆变器')+'参数诊断');

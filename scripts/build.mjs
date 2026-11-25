@@ -19,9 +19,14 @@ function collect(directory) {
   }
 }
 collect(path.join(root, 'public'));
-const querySource=fs.readFileSync(path.join(root,'server/workspace-query.mjs'),'utf8').replace("import {applyInverterDrill} from './inverter-drill.mjs';",'').replace("import {enrichEnergySnapshot} from './energy.mjs';",'').replaceAll('export ','');
+const querySource=fs.readFileSync(path.join(root,'server/workspace-query.mjs'),'utf8').replace("import {applyInverterDrill} from './inverter-drill.mjs';",'').replace("import {enrichEnergySnapshot} from './energy.mjs';",'').replace("import {applySeasonalShade} from './seasonal-shade.mjs';",'').replace("import {projectTargetSoc} from './target-soc.mjs';",'').replaceAll('export ','');
 const queryBundle='const {queryWorkspace,workspaceTool}=(()=>{\n'+querySource+'\nreturn {queryWorkspace,workspaceTool};})();\n';
-const api=fs.readFileSync(path.join(root,'server/api.mjs'),'utf8').replace("import {queryWorkspace,workspaceTool} from './workspace-query.mjs';",'').replace("import {createManagerSessions} from './manager-auth.mjs';",'').replace("import {analyzeMedia} from './vision.mjs';",'').replace('export function createApi','function createApi');
+const targetSoc=fs.readFileSync(path.join(root,'server/target-soc.mjs'),'utf8').replaceAll('export ','');
+const seasonalShade=fs.readFileSync(path.join(root,'server/seasonal-shade.mjs'),'utf8').replaceAll('export ','');
+const agentLoop=fs.readFileSync(path.join(root,'server/agent-loop.mjs'),'utf8').replaceAll('export ','');
+const afterSales=fs.readFileSync(path.join(root,'server/after-sales.mjs'),'utf8').replaceAll('export ','');
+const stationData=fs.readFileSync(path.join(root,'server/station-data.mjs'),'utf8').replace("import {queryWorkspace,workspaceTool} from './workspace-query.mjs';",'').replace("import { afterSalesTools,lookupAfterSales } from './after-sales.mjs';",'').replaceAll('export ','');
+const api=fs.readFileSync(path.join(root,'server/api.mjs'),'utf8').replace("import {queryWorkspace,workspaceTool} from './workspace-query.mjs';",'').replace("import {createManagerSessions} from './manager-auth.mjs';",'').replace("import {analyzeMedia} from './vision.mjs';",'').replace("import {runAgentLoop} from './agent-loop.mjs';",'').replace("import {stationTools,createStationToolExecutor} from './station-data.mjs';",'').replace('export function createApi','function createApi');
 const vision=fs.readFileSync(path.join(root,'server/vision.mjs'),'utf8').replace("import {annotatedVideo,addIndicatorGuide} from './indicator-guide.mjs';",'').replace('export async function','async function');
 const indicatorGuide=fs.readFileSync(path.join(root,'server/indicator-guide.mjs'),'utf8').replaceAll('export ','');
 const inverterRiskSource = 'const inverterRisk = (() => {\n' + fs.readFileSync(path.join(root, 'server/inverter-risk.mjs'), 'utf8').replaceAll('export function ', 'function ') + '\nreturn inverterRisk;})();\n';
@@ -30,14 +35,14 @@ const report = fs.readFileSync(path.join(root, 'server/report.mjs'), 'utf8').rep
 const energy = fs.readFileSync(path.join(root, 'server/energy.mjs'), 'utf8').replaceAll('export function ', 'function ');
 const inverterDrill=fs.readFileSync(path.join(root,'server/inverter-drill.mjs'),'utf8').replaceAll('export function ', 'function ');
 const managerAuth = fs.readFileSync(path.join(root,'server/manager-auth.mjs'),'utf8').replaceAll('export function ', 'function ');
-const workspace = fs.readFileSync(path.join(root, 'server/workspace.mjs'), 'utf8').replace("import { applyInverterDrill } from './inverter-drill.mjs';", '').replace("import { createManagerSessions } from './manager-auth.mjs';", '').replace("import { evaluateReminders, reminderFeed, setReminderScenario, resetReminders } from './reminders.mjs';", '').replace("import { renderMonthlyReport } from './report.mjs';", '').replace("import { enrichEnergySnapshot } from './energy.mjs';", '').replaceAll('export function ', 'function ');
+const workspace = fs.readFileSync(path.join(root, 'server/workspace.mjs'), 'utf8').replace("import { applyInverterDrill } from './inverter-drill.mjs';", '').replace("import { createManagerSessions } from './manager-auth.mjs';", '').replace("import { evaluateReminders, reminderFeed, setReminderScenario, resetReminders } from './reminders.mjs';", '').replace("import { renderMonthlyReport } from './report.mjs';", '').replace("import { enrichEnergySnapshot } from './energy.mjs';", '').replace("import { handleStationData } from './station-data.mjs';",'').replace("import { intentEventFor,applySeasonalShade } from './seasonal-shade.mjs';",'').replace("import { savedTargetSoc,projectTargetSoc } from './target-soc.mjs';",'').replace("import { handleAfterSales } from './after-sales.mjs';",'').replaceAll('export function ', 'function ');
 const worker = fs.readFileSync(path.join(root, 'worker/index.js'), 'utf8').replace("import { createApi } from '../server/api.mjs';", '').replace("import { createWorkspaceApi, createR2WorkspaceStore } from '../server/workspace.mjs';", '');
-if (/^\s*import\s/m.test(api + workspace + worker)) throw new Error('Add new server dependencies to the build bundler before using imports');
+if (/^\s*import\s/m.test(api + workspace + worker + agentLoop + stationData)) throw new Error('Add new server dependencies to the build bundler before using imports');
 // Only remove this checkout's generated dist directory, never source or neighboring paths.
 if (path.dirname(output) !== root || path.basename(output) !== 'dist') throw new Error('Invalid build output path');
 fs.rmSync(output, { recursive: true, force: true });
 fs.mkdirSync(path.join(output, 'server'), { recursive: true });
 fs.mkdirSync(path.join(output, '.openai'), { recursive: true });
-fs.writeFileSync(path.join(output, 'server/index.js'), 'const ASSETS = ' + JSON.stringify(assets) + ';\n' + inverterDrill + '\n' + inverterRiskSource + reminders + '\n' + report + '\n' + energy + '\n' + queryBundle + indicatorGuide + '\n' + vision + '\n' + api + '\n' + managerAuth + '\n' + workspace + '\n' + worker);
+fs.writeFileSync(path.join(output, 'server/index.js'), 'const ASSETS = ' + JSON.stringify(assets) + ';\n' + inverterDrill + '\n' + inverterRiskSource + reminders + '\n' + report + '\n' + energy + '\n' + targetSoc + '\n' + seasonalShade + '\n' + queryBundle + afterSales + '\n' + stationData + '\n' + agentLoop + '\n' + indicatorGuide + '\n' + vision + '\n' + api + '\n' + managerAuth + '\n' + workspace + '\n' + worker);
 fs.copyFileSync(path.join(root, '.openai/hosting.json'), path.join(output, '.openai/hosting.json'));
 console.log('Built Worker with shared API and ' + Object.keys(assets).length + ' public assets');

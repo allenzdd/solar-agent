@@ -1,0 +1,32 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {simulateHistory} from '../scripts/simulate-history.mjs';
+import {extendHistory,updateHistoryReports} from '../scripts/extend-history.mjs';
+const config={id:'P1',name:'苏州',country:'中国',city:'苏州',invKw:100,ratio:1.2,batKw:100,batHours:2,seed:123};
+test('history resumes partial hours with saved SOC, preserves earlier days, and crosses month boundaries',async()=>{
+  const start=Date.parse('2026-10-30T00:00:00+08:00'),cutoff=Date.parse('2026-10-31T21:19:14.045+08:00'),end=Date.parse('2026-11-02T13:03:21+08:00');
+  const old=JSON.parse(JSON.stringify(await simulateHistory([config],{start,end:cutoff})));
+  const copy=structuredClone(old),{history,changed}=await extendHistory(old,[config],end);
+  assert.deepEqual(old,copy); assert.equal(changed.length,2);
+  assert.deepEqual(history.datasets[0].daily[0],old.datasets[0].daily[0]);
+  assert.equal(history.datasets[0].hourly.find(h=>h.date==='2026-10-31'&&h.hour===21).minutes,60);
+  assert.equal(history.datasets.at(-1).endUtc,end);
+  assert.equal(history.datasets.at(-1).daily.at(-1).complete,false);
+  assert.equal(history.window.days,4);
+  const soc=old.datasets.at(-1).hourly.at(-1).socEnd;
+  const resumed=await simulateHistory([config],{start:cutoff,end,initialSocByPlant:{P1:soc}});
+  assert.equal(resumed.datasets[0].initialSoc,soc);
+  assert.ok(Math.abs(history.datasets.reduce((s,d)=>s+d.totals.dayDis,0)-old.datasets[0].totals.dayDis-resumed.datasets.reduce((s,d)=>s+d.totals.dayDis,0))<.00001);
+  const again=await extendHistory(history,[config],end); assert.deepEqual(again.changed,[]); assert.deepEqual(again.history,history);
+  const workspace={config:[config],snapshot:{time:{utc:cutoff},plants:[{soc:80}]},lease:{owner:'manager'},commands:[{id:'x'}],assistant:{events:[{id:'other',status:'active'}],plants:{},scenarios:{}}};
+  const updated=updateHistoryReports(workspace,history,changed);
+  for(const k of ['config','snapshot','lease','commands']) assert.deepEqual(updated[k],workspace[k]);
+  assert.equal(updated.assistant.events.length,3);
+  assert.equal(updated.assistant.events.find(e=>e.id==='month:P1:2026-11').report.daily.length,2);
+});
+test('extension rejects future cutoffs and missing saved SOC',async()=>{
+  const h=await simulateHistory([config],{start:Date.parse('2026-11-03T00:00:00+08:00'),end:Date.parse('2026-11-03T21:19:14+08:00')});
+  await assert.rejects(extendHistory(h,[config],Date.now()+86400000),/non-future/);
+  delete h.datasets[0].hourly.at(-1).socEnd;
+  await assert.rejects(extendHistory(h,[config],Date.parse('2026-11-04T12:00:00+08:00')),/SOC/);
+});

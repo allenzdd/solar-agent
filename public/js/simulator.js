@@ -322,7 +322,7 @@ function makePlant(o){
     seed: Math.floor(Math.random() * 99999) + 1,
     name: o.name, country: o.country || '中国', city: o.city,
     tz: geo.tz, geo: o.geo || { lat: geo.lat, lng: geo.lng },
-    inverterThermal: o.inverterThermal || null, invTemp: 29,
+    inverterThermal: o.inverterThermal || null, invTemp: 29, strategy:o.strategy||null, targetSoc:o.targetSoc||null,
     invKw: invKw, ratio: ratio, batKw: batKw, batHours: batH,
     type: type, mode: mode, tariff: tariff,
     socMin: socMin, socMax: socMax, start: start,
@@ -402,18 +402,28 @@ function simStepPlant(p, dtMin, quiet, atUtc, noSample){
   p.demand = demand;
 
   const usable = Math.max(1, p.cfg.batKwh) * 0.9;
-  const socMin = p.socMin != null ? p.socMin : 10;
-  const socMax = p.socMax != null ? p.socMax : 98;
-  const roomKwh  = Math.max(0, (socMax - p.soc) / 100 * usable);
-  const availKwh = Math.max(0, (p.soc - socMin) / 100 * usable);
-  const maxChg = Math.min(p.cfg.batKw, roomKwh / Math.max(dtH, 1e-6));
-  const maxDis = Math.min(p.cfg.batKw, availKwh / Math.max(dtH, 1e-6));
+  const strategy=p.strategy&&utc>=p.strategy.startsAt&&utc<p.strategy.endsAt?p.strategy:null;
+  const socMin = strategy?strategy.min:(p.socMin != null ? p.socMin : 10);
+  const socMax = strategy?strategy.max:(p.socMax != null ? p.socMax : 98);
+  const target=!strategy&&Number.isFinite(p.targetSoc?.target)?p.targetSoc:null;
+  if(target&&((p.batMode==='charge'&&p.soc>=target.target-1e-8)||(p.batMode==='discharge'&&p.soc<=target.target+1e-8))){p.batMode='idle';p.targetSoc={...target,direction:'stop'};if(!quiet&&globalThis.ManagerBridge)savePlantCfg();}
+  const ceiling=target&&p.batMode==='charge'?Math.min(socMax,target.target):socMax;
+  const floor=target&&p.batMode==='discharge'?Math.max(socMin,target.target):socMin;
+  const roomKwh  = Math.max(0, (ceiling - p.soc) / 100 * usable);
+  const availKwh = Math.max(0, (p.soc - floor) / 100 * usable);
+  const maxChg = Math.min(p.cfg.batKw, roomKwh / (target?p.cfg.eff:1) / Math.max(dtH, 1e-6));
+  const maxDis = Math.min(p.cfg.batKw, availKwh * (target?p.cfg.eff:1) / Math.max(dtH, 1e-6));
 
   let chg = 0, dis = 0, imp = 0, exp = 0, shed = 0, curtail = 0;
   const net = p.pv - demand;
 
   if (!p.gridOut) {
-    if (p.batMode === 'charge') {
+    if(strategy){
+      const kw=strategy.rows[Math.floor(lt.minOfDay/60)]?.batKw||0;
+      chg=Math.min(Math.max(0,-kw),maxChg,roomKwh/p.cfg.eff/Math.max(dtH,1e-6));
+      dis=Math.min(Math.max(0,kw),maxDis,availKwh*p.cfg.eff/Math.max(dtH,1e-6));
+      const balance=demand-p.pv+chg-dis;imp=Math.max(0,balance);exp=Math.max(0,-balance);
+    } else if (p.batMode === 'charge') {
       chg = maxChg;
       const fromPv = Math.min(Math.max(net, 0), chg);
       imp = Math.max(0, demand - p.pv) + (chg - fromPv);
@@ -440,8 +450,8 @@ function simStepPlant(p, dtMin, quiet, atUtc, noSample){
   }
 
   const served = Math.max(0, demand - shed);
-  p.soc = Math.max(socMin, Math.min(socMax,
-    p.soc + (chg * p.cfg.eff - dis / p.cfg.eff) / usable * 100 * dtH));
+  const nextSOC=p.soc+(chg*p.cfg.eff-dis/p.cfg.eff)/usable*100*dtH;
+  p.soc = strategy?Math.max(0,Math.min(100,nextSOC)):Math.max(socMin,Math.min(socMax,nextSOC));
 
   p.dayPv   += p.pv * dtH;
   p.dayLoad += served * dtH;
@@ -1298,7 +1308,7 @@ function createPlant(){
     const keep = {
       id: target.id, seed: target.seed, created: target.created,
       totalBase: target.totalBase, totalRev: target.totalRev,
-      geo: target.geo, inverterThermal: target.inverterThermal,
+      geo: target.geo, inverterThermal: target.inverterThermal, strategy:target.strategy, targetSoc:target.targetSoc,
       cloud: target.cloud, loadScale: target.loadScale, batMode: target.batMode, gridOut: target.gridOut
     };
     const np = makePlant(payload);
@@ -1456,7 +1466,7 @@ function pushAggHist(){
 function savePlantCfg(){
   const config = PLANTS.map(p => ({
       id: p.id, name: p.name, country: p.country, city: p.city,
-      geo: p.geo, inverterThermal: null,
+      geo: p.geo, inverterThermal: null, strategy:p.strategy||null, targetSoc:p.targetSoc||null,
       invKw: p.invKw, ratio: p.ratio, batKw: p.batKw, batHours: p.batHours,
       type: p.type, mode: p.mode, tariff: p.tariff, created: p.created,
       socMin: p.socMin, socMax: p.socMax, start: p.start,
@@ -1595,9 +1605,41 @@ function initCmdBus(){
 function ackCmd(c, ok, msg){
   if (globalThis.ManagerBridge) ManagerBridge.ack(c, ok, msg);
 }
+function applyServerTargetSoc(s){
+  const p=PLANTS.find(p=>p.id===s.plantId);if(!p||p.targetSoc?.commandId===s.commandId)return false;
+  if(!Number.isInteger(s.target)||s.target<(p.socMin??0)||s.target>(p.socMax??100)||!['stop','charge','discharge'].includes(s.direction))return false;
+  p.targetSoc={target:s.target,direction:s.direction,commandId:s.commandId,updatedAt:s.updatedAt};p.batMode=s.direction==='stop'?'idle':s.direction;p.strategy=null;return true;
+}
 function pollCmd(c){
   if (!c || !c.ts || c.ts <= lastCmdTs) return;
   lastCmdTs = c.ts;
+
+  if(c.type==='target-soc'){
+    const p=PLANTS.find(p=>p.id===c.plantId);
+    if(!p){ackCmd(c,false,'目标电站不存在');return;}
+    if(!Number.isInteger(c.target)||c.target<(p.socMin??0)||c.target>(p.socMax??100)||!['stop','charge','discharge'].includes(c.direction)||!(p.cfg.batKw>0)){ackCmd(c,false,'目标SOC或充放电方式不符合设备范围');return;}
+    p.targetSoc={target:c.target,direction:c.direction};p.batMode=c.direction==='stop'?'idle':c.direction;p.strategy=null;
+    savePlantCfg();simRender();publishState();ackCmd(c,true,'目标SOC已设置为 '+c.target+'%，'+({stop:'已停止手动充放电',charge:'充电至目标后停止',discharge:'放电至目标后停止'})[c.direction]+'；当前SOC未被改写');return;
+  }
+
+  if(c.type==='strategy'){
+    const p=PLANTS.find(x=>x.id===c.plantId);
+    if(!p){ackCmd(c,false,'目标电站不存在');return;}
+    if(p.strategy?.commandId===c.id){ackCmd(c,true,'策略已接收，计划保持不变');return;}
+    if(c.cancel){
+      if(!p.strategy){ackCmd(c,true,'策略已撤销，当前使用电站原调度');return;}
+      if(p.strategy.id!==c.planId){ackCmd(c,false,'电站当前策略已变更，请刷新后重试');return;}
+      p.strategy=null;savePlantCfg();simRender();publishState();ackCmd(c,true,'已撤销策略，恢复电站原调度');return;
+    }
+    if(p.closed){ackCmd(c,false,'电站已关闭，请先启动电站');return;}
+    if(!Number.isFinite(c.min)||!Number.isFinite(c.max)||c.min<0||c.max>100||c.max-c.min<5||!Array.isArray(c.rows)||c.rows.length!==24||c.rows.some((r,i)=>r.hour!==i||!Number.isFinite(r.batKw)||Math.abs(r.batKw)>p.cfg.batKw+.001)) {ackCmd(c,false,'策略参数或功率超出设备范围');return;}
+    const lt=localTime(p.tz,SIMTIME.utc),day=new Date(Date.UTC(lt.y,lt.mo-1,lt.dd+1));
+    const startsAt=utcFromLocal(p.tz,day.getUTCFullYear(),day.getUTCMonth()+1,day.getUTCDate(),0,0);
+    const next=new Date(Date.UTC(lt.y,lt.mo-1,lt.dd+2)),endsAt=utcFromLocal(p.tz,next.getUTCFullYear(),next.getUTCMonth()+1,next.getUTCDate(),0,0);
+    p.strategy={id:c.planId,commandId:c.id,min:c.min,max:c.max,rows:c.rows.map(r=>({hour:r.hour,batKw:r.batKw})),startsAt,endsAt};
+    savePlantCfg();simEvent(p,'小源策略指令已执行：已安排下一仿真日24小时充放电计划','#3a7afe');simRender();publishState();
+    ackCmd(c,true,'策略已接收，将于电站当地仿真时间 '+localTime(p.tz,startsAt).date+' 00:00 生效，持续一天');return;
+  }
 
   if (c.type === 'soc') {
     const p = (c.plantId && PLANTS.find(x => x.id === c.plantId)) || SIM || PLANTS[0];
@@ -1687,7 +1729,7 @@ function pollCmd(c){
       cloud: Math.max(0, Math.min(1, num(patch.cloud, p.cloud))),
       closed: patch.closed != null ? !!patch.closed : !!p.closed,
       loadTable: p.loadTable, loadFromFile: p.loadFromFile,
-      geo: p.geo, inverterThermal: p.inverterThermal, invTemp: p.invTemp,
+      geo: p.geo, inverterThermal: p.inverterThermal, invTemp: p.invTemp, strategy:p.strategy, targetSoc:p.targetSoc,
       soc: p.soc, batTemp: p.batTemp
     };
     const np = makePlant(payload);
@@ -1801,7 +1843,7 @@ function publishState(){
       socMin: p.socMin, socMax: p.socMax, start: p.start,
       invKw: p.invKw, batKw: p.batKw, batHours: p.batHours, cfg: p.cfg, tariff: p.tariff,
       loadFromFile: !!p.loadTable,
-      cloud: p.cloud, loadScale: p.loadScale, batMode: p.batMode, gridOut: p.gridOut, closed: !!p.closed,
+      cloud: p.cloud, loadScale: p.loadScale, batMode: p.batMode, gridOut: p.gridOut, closed: !!p.closed, targetSoc:p.targetSoc,
       pv: r2(p.pv), load: r2(p.load), demand: r2(p.demand), bat: r2(p.bat), grid: r2(p.grid),
       shed: r2(p.shed), curtail: r2(p.curtail), soc: r1(p.soc), batTemp: r1(p.batTemp), invTemp: r1(p.invTemp), inverterThermal: p.inverterThermal,
       dayPv: r2(p.dayPv), dayLoad: r2(p.dayLoad), dayImp: r2(p.dayImp), dayExp: r2(p.dayExp),

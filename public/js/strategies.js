@@ -3,6 +3,8 @@
  const M=global.StrategyDemoModel,KEY='solar-strategy-demo-v1',screen=document.querySelector('.screen');if(!M||!screen)return;
  let state={applied:{},previous:{},snoozeUntil:0},focus=null;const cards=new Map();
  try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s?.applied&&s?.previous)state={...state,...s};}catch{}
+ state.applied=Object.fromEntries(Object.entries(state.applied).filter(([,p])=>p.commandId));
+ const submitting=new Set();let polling=false;
  const el=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;};
  const btn=(text,fn,cls='')=>{const b=el('button',cls,text);b.type='button';b.addEventListener('click',fn);return b;};
  const id=()=>global.crypto?.randomUUID?.()||'plan-'+Date.now()+'-'+Math.random().toString(36).slice(2);
@@ -11,7 +13,7 @@
  const modeIcon={backup:'♧',life:'♧',profit:'▥',arbitrage:'ϟ'};
  function plants(){try{if(PLANTS.length)return PLANTS.map(p=>({id:p.id,name:p.name,city:p.city,batKwh:p.cfg?.batKwh||p.batKw*p.batHours,batKw:p.batKw,pvKwp:p.cfg?.pvKwp,loadPeak:p.cfg?.loadPeak}));}catch{}return [{id:'demo',name:'演示电站',batKwh:215,batKw:100,pvKwp:120,loadPeak:70}];}
  const plant=id=>plants().find(p=>p.id===id)||plants()[0];
- function target(q){const matches=plants().filter(p=>q.includes(p.name)||(p.city&&q.includes(p.city.replace(/市$/,''))));if(matches.length)return matches[0];try{const p=plants().find(p=>p.name===xyScope);if(p)return p;}catch{}return plants()[0];}
+ function target(q){const exact=plants().find(p=>q.includes('「'+p.name+'」'));if(exact)return exact;const matches=plants().filter(p=>q.includes(p.name)||(p.city&&q.includes(p.city.replace(/市$/,''))));if(matches.length)return matches[0];try{const p=plants().find(p=>p.name===xyScope);if(p)return p;}catch{}return plants()[0];}
  function persist(next){try{localStorage.setItem(KEY,JSON.stringify(next));state=next;refresh();return true;}catch{toast('本浏览器暂时无法保存演示策略');return false;}}
  function chat(){openXY();document.getElementById('xy-intro').classList.add('hide');document.getElementById('xy-chat').classList.add('on');}
  const layer=el('section','so-layer');layer.hidden=true;layer.setAttribute('role','dialog');layer.setAttribute('aria-modal','true');screen.append(layer);
@@ -43,12 +45,12 @@
   if(p.mode==='backup'){field('停电开始(时)','number','start',p.start,0,23);field('停电结束(时)','number','end',p.end,1,24);field('停电前备用SOC(%)','number','reserveSOC',p.reserveSOC,0,100);field('重要负载(kW)','number','criticalKw',p.criticalKw,.1,100000);}
   for(const [key,name]of [['income','收益权重'],['life','寿命权重'],['reserve','备电权重']]){const i=field(name,'range',key,p.weights[key],0,100),v=el('output','',p.weights[key]);i.after(v);i.addEventListener('input',()=>v.textContent=i.value);}
   field('演示谷价(元/kWh)','number','lowPrice',p.lowPrice,0,10);field('演示平价(元/kWh)','number','normalPrice',p.normalPrice,0,10);field('演示峰价(元/kWh)','number','highPrice',p.highPrice,0,10);
-  const error=el('p','so-error');error.setAttribute('role','status');form.append(error,el('small','so-note','权重自动归一化。参数修改后须重新生成，再确认模拟应用。'));
+  const error=el('p','so-error');error.setAttribute('role','status');form.append(error,el('small','so-note','权重自动归一化。参数修改后须重新生成，再确认下达指令。'));
   form.addEventListener('input',()=>{apply.disabled=true;error.textContent='参数已修改，请重新生成方案。';});
   const generate=el('button','so-primary','重新生成方案');generate.type='submit';form.append(generate);form.noValidate=true;
   form.addEventListener('submit',e=>{e.preventDefault();const next={...p,weights:{...p.weights}};for(const key of ['min','max','initialSOC','start','end','reserveSOC','criticalKw','lowPrice','normalPrice','highPrice'])if(form.elements.namedItem(key))next[key]=Number(form.elements.namedItem(key).value);for(const key of ['income','life','reserve'])next.weights[key]=Number(form.elements.namedItem(key).value);const st=plant(select.value),result=M.solve(next,st);if(result.errors.length){error.textContent=result.errors.join('；');return;}const updated={id:id(),plant:st,params:next,result,source:plan.source};cards.set(updated.id,updated);render(card,updated);toast('演示方案已重新生成');});details.append(form);return details;
  }
- function render(card,plan){const p=plan.params,r=plan.result,active=state.applied[plan.plant.id]?.id===plan.id;card.className='so-card so-'+p.mode;card.dataset.soId=plan.id;card.replaceChildren();const head=el('div','so-card-head'),t=el('div');t.append(el('strong','',title(p)),el('small','',plan.plant.name+' · SOC '+p.min+'%–'+p.max+'%'));head.append(el('span','so-mode-icon',modeIcon[p.mode]),t,el('span','so-status',active?'已模拟应用':'待确认'));card.append(head);
+ function render(card,plan){const p=plan.params,r=plan.result,saved=state.applied[plan.plant.id]?.id===plan.id?state.applied[plan.plant.id]:null,active=saved?.status==='done',pending=saved?.status==='pending',sending=submitting.has(plan.plant.id);card.className='so-card so-'+p.mode;card.dataset.soId=plan.id;card.replaceChildren();const head=el('div','so-card-head'),t=el('div');t.append(el('strong','',title(p)),el('small','',plan.plant.name+' · SOC '+p.min+'%–'+p.max+'%'));head.append(el('span','so-mode-icon',modeIcon[p.mode]),t,el('span','so-status',sending?'正在提交':pending?'已下达 · 待执行':active?'指令已执行':saved?.status==='failed'?'执行失败':saved?.status==='unknown'?'结果待核实':'待确认'));card.append(head);
   const metrics=el('div','so-metrics');
   if(p.mode==='backup')metrics.append(metric('停电前目标',p.reserveSOC+'%',n(r.reserveEnergy)+' kWh可用电量'),metric('停电时段',p.start+':00–'+p.end+':00','共'+(p.end-p.start)+'小时'),metric('保守可供',n(r.coverageHours)+'小时','重要负载 '+p.criticalKw+' kW'));
   else if(p.mode==='life')metrics.append(metric('电池SOC范围',p.min+'%–'+p.max+'%','限制深充深放'),metric('等效循环',n(r.cycles,2)+'次/日','演示估算'),metric('循环减少',n(r.cycleReduction)+'%','相对收益优先示例'));
@@ -56,11 +58,26 @@
   card.append(metrics,chart(plan));const explain={backup:'先在停电前预留电量，再为重要负载供电。优先保供，可能牺牲部分价差收益。',life:'减少深充深放和电量吞吐，优先保护电池；可能少一些短期收益，实际寿命需结合设备评估。',profit:'把SOC边界作为硬约束，在演示候选方案中优先选择节费较高的一组。',arbitrage:'低谷充电、高峰为负载供电；结合SOC、功率限制和循环代价，减少不必要的频繁充放电。'};if(p.mode==='backup')card.append(el('small','so-note','按停电期间光伏不供电保守测算；设备离网能力尚未核验。'));card.append(el('p','so-takeaway','策略要点：'+(title(p)==='自定义多目标权衡策略'?'按自定义权重平衡收益、循环与备电，在硬约束内选择候选方案。':explain[p.mode])));
   const w=M.percentWeights(p.weights);card.append(el('div','so-weights','目标权重：收益 '+w.income+'% · 寿命 '+w.life+'% · 备电 '+w.reserve+'%'));
   const blocked=!r.feasible||(['profit','arbitrage'].includes(p.mode)&&r.saving<=0);if(blocked)card.append(el('p','so-error',!r.feasible?'当前容量、功率或充电准备时间不足以覆盖备用目标，须降低负载或调整停电时段。':'此组演示参数下没有经济节费优势，建议调整后再应用。'));
-  const confirm=el('div','so-confirm');confirm.append(el('strong','',active?'✓ 已确认模拟应用':'是否确认模拟应用该策略？'),el('small','',active?'仅更新本浏览器演示状态，未下发设备控制。':'确认前可修改参数；不会改变电站的真实仿真调度。'));const actions=el('div','so-actions'),apply=btn(active?'撤销模拟应用':'确认模拟应用',()=>active?undo(plan.plant.id):applyPlan(plan),'so-primary');apply.disabled=blocked;actions.append(btn(active?'查看策略中心':'暂不采用',()=>{if(active){workbench();return;}card.classList.add('so-dismissed');toast('已暂不采用，此方案未应用');}),apply);confirm.append(actions);card.append(confirm,controls(plan,card,apply),assumptions(plan),el('small','so-note','Demo：曲线与价格均为演示假设；不控制设备，不承诺收益或寿命。'));
+  const confirm=el('div','so-confirm');confirm.append(el('strong','',sending?'正在提交指令…':pending?'指令已下达，等待管理端执行':active?'✓ 策略指令已执行':saved?.status==='failed'?'策略指令执行失败':saved?.status==='unknown'?'指令结果待核实':'是否下达该策略指令？'),el('small','',saved?.message||'下达后由仿真管理端执行，按电站当地仿真时间安排下一天的24小时调度。'));const actions=el('div','so-actions'),apply=btn(sending?'正在提交…':pending?'等待执行…':saved?.status==='unknown'?'查询执行结果':active?'撤销策略':saved?.action==='cancel'?'重试撤销':'确认下达指令',()=>saved?.status==='unknown'?pollCommands(true):active||saved?.action==='cancel'?undo(plan.plant.id):applyPlan(plan),'so-primary');apply.disabled=blocked||pending||sending;actions.append(btn(saved?'查看策略中心':'暂不采用',()=>{if(saved){manageApplied();return;}card.classList.add('so-dismissed');toast('已暂不采用，此方案未下达');}),apply);confirm.append(actions);card.append(confirm,controls(plan,card,apply),assumptions(plan),el('small','so-note','曲线与价格为测算假设；指令作用于仿真电站，实际出力受实时SOC、功率和并网约束限制。'));
  }
- function refresh(){const banner=document.querySelector('.so-home');if(banner)banner.hidden=state.snoozeUntil>Date.now();document.querySelectorAll('[data-so-id]').forEach(card=>{const p=cards.get(card.dataset.soId);if(p)render(card,p);});}
- function applyPlan(plan){if(!plan.result.feasible)return;const next=JSON.parse(JSON.stringify(state));const pid=plan.plant.id;if(next.applied[pid])next.previous[pid]=next.applied[pid];else delete next.previous[pid];next.applied[pid]={id:plan.id,plantId:pid,plantName:plan.plant.name,params:plan.params,appliedAt:Date.now()};if(persist(next))toast('已模拟应用，未下发控制指令');}
- function undo(pid){const next=JSON.parse(JSON.stringify(state));if(next.previous[pid])next.applied[pid]=next.previous[pid];else delete next.applied[pid];delete next.previous[pid];if(persist(next))toast('已撤销模拟应用');}
+ function refresh(){const list=layer.querySelector('.so-applied-list');if(list&&!layer.hidden)renderApplied(list);const banner=document.querySelector('.so-home');if(banner)banner.hidden=state.snoozeUntil>Date.now();document.querySelectorAll('[data-so-id]').forEach(card=>{const p=cards.get(card.dataset.soId);if(p)render(card,p);});}
+ function saveDispatch(next){state=next;try{localStorage.setItem(KEY,JSON.stringify(next));}catch{}refresh();}
+ async function applyPlan(plan){
+  const pid=plan.plant.id;if(!plan.result.feasible||submitting.has(pid)||state.applied[pid]?.status==='pending')return;
+  if(!plants().some(p=>p.id===pid)||pid==='demo'){toast('请先连接目标电站');return;}
+  submitting.add(pid);refresh();
+  try{
+   plan.commandId=plan.commandId||id();const result=await global.AppBridge.command({id:plan.commandId,type:'strategy',plantId:pid,planId:plan.id,min:plan.params.min,max:plan.params.max,rows:plan.result.rows.map(r=>({hour:r.hour,batKw:r.batKw}))});
+   const c=result.command;saveDispatch({...state,applied:{...state.applied,[pid]:{id:plan.id,plantId:pid,plantName:plan.plant.name,params:plan.params,commandId:c.id,status:c.status==='done'?(c.ok?'done':'failed'):'pending',appliedAt:Date.now(),message:c.msg||'已进入控制队列，等待仿真管理端确认。'}}});
+   toast(c.status==='done'?(c.ok?'策略指令已执行':c.msg||'策略执行失败'):'已下达策略指令，等待执行');void pollCommands();
+  }catch(e){
+   if(e.status||/尚未配置|控制口令/.test(e.message))toast('指令未下达：'+e.message);
+   else{saveDispatch({...state,applied:{...state.applied,[pid]:{id:plan.id,plantId:pid,plantName:plan.plant.name,params:plan.params,commandId:plan.commandId,status:'unknown',appliedAt:Date.now(),message:'未收到服务器确认，请先查询执行结果，避免重复下达。'}}});toast('暂未收到下达确认，请查询执行结果');}
+  }finally{submitting.delete(pid);refresh();}
+ }
+ async function undo(pid){const saved=state.applied[pid];if(!saved||submitting.has(pid)||saved.status==='pending')return;const cancelId=saved.cancelCommandId||id();submitting.add(pid);refresh();try{const result=await global.AppBridge.command({id:cancelId,type:'strategy',plantId:pid,planId:saved.id,cancel:true});saveDispatch({...state,applied:{...state.applied,[pid]:{...saved,action:'cancel',commandId:result.command.id,cancelCommandId:result.command.id,status:'pending',appliedAt:Date.now(),message:'已下达撤销指令，等待管理端执行。'}}});toast('已下达撤销指令，等待执行');void pollCommands();}catch(e){if(e.status||/尚未配置|控制口令/.test(e.message))toast('撤销指令未下达：'+e.message);else{saveDispatch({...state,applied:{...state.applied,[pid]:{...saved,action:'cancel',commandId:cancelId,cancelCommandId:cancelId,status:'unknown',appliedAt:Date.now(),message:'未收到撤销确认，请先查询执行结果。'}}});toast('暂未收到撤销确认，请查询执行结果');}}finally{submitting.delete(pid);refresh();}}
+ async function pollCommands(force=false){if(polling)return;polling=true;try{for(const [pid,s] of Object.entries(state.applied)){if(s.status!=='pending'&&!(force&&s.status==='unknown'))continue;let c;try{c=await global.AppBridge.acknowledgment(s.commandId);}catch{}if(state.applied[pid]?.commandId!==s.commandId)continue;const next=JSON.parse(JSON.stringify(state));if(c?.status==='done'){if(c.ok&&s.action==='cancel')delete next.applied[pid];else{next.applied[pid].status=c.ok?'done':'failed';next.applied[pid].message=c.msg||'管理端已返回执行结果';if(!c.ok){const plan=cards.get(s.id);if(plan)delete plan.commandId;delete next.applied[pid].cancelCommandId;}}saveDispatch(next);toast(c.ok?(s.action==='cancel'?'策略已撤销':'策略指令已执行'):c.msg||'策略执行失败');}else if(c?.status==='expired'){next.applied[pid].status='failed';next.applied[pid].message='指令已超时，请确认管理端已运行并刷新到最新版本后重试。';const plan=cards.get(s.id);if(plan)delete plan.commandId;delete next.applied[pid].cancelCommandId;saveDispatch(next);toast('指令执行超时，未确认生效');}else if(Date.now()-s.appliedAt>60000){next.applied[pid].status='unknown';next.applied[pid].message='暂时无法取得执行结果，请恢复连接后查询，避免重复下达。';saveDispatch(next);}}}finally{polling=false;}}
+ setInterval(()=>{void pollCommands();},1500);
  function start(params,st=plants()[0],source='chat'){close();chat();const result=M.solve(params,st);if(result.errors.length){addMsg('ai','请调整策略条件：'+result.errors.join('；'));return;}const row=addMsg('ai',source==='proactive'?'小源建议：可先比较这份充放电方案，再决定是否采用。':'已生成一份多目标充放电演示方案，请查看目标、约束和曲线。');const card=el('div','so-card'),plan={id:source==='saved'&&state.applied[st.id]?state.applied[st.id].id:id(),plant:st,params,result,source};cards.set(plan.id,plan);row.querySelector('.bubble').append(card);render(card,plan);requestAnimationFrame(()=>row.scrollIntoView({block:'start',behavior:'smooth'}));}
  function paramsFor(mode,st){const p=M.defaults(mode);p.criticalKw=Math.max(.5,Math.round(Math.min(st.batKw*.1,st.batKwh*.1)*10)/10);return p;}
  function recommend(mode='arbitrage',pid){if(mode==='arbitrage'&&global.SolarReminders){close();global.SolarReminders.replaySaving();return;}const st=plant(pid),p=paramsFor(mode,st),r=M.solve(p,st);const title=mode==='backup'?'小源建议：提前预留备用电':mode==='life'?'小源建议：评估保守充放电':'小源发现一个省钱机会';show(title,body=>{
@@ -68,10 +85,37 @@
    const tiles=el('div','so-metrics');tiles.append(metric(mode==='arbitrage'?'预计每日节省':'推荐目标',mode==='arbitrage'?'¥'+n(r.saving,2):mode==='backup'?'备电优先':'寿命优先','演示测算'),metric('推荐策略',mode==='arbitrage'?'谷充峰放':M.presets[mode].name,st.name));body.append(tiles,chart({params:p,result:r}),el('small','so-note','以假设峰谷电价和负载测算，不代表实际天气、电价或故障诊断。'));
    const detail=el('details','so-assumptions');detail.append(el('summary','','查看详情'),el('p','',`电池${n(st.batKwh)} kWh / ${n(st.batKw)} kW；演示谷价${p.lowPrice}、峰价${p.highPrice}元/kWh。将比较4组充放电强度，SOC约束${p.min}%–${p.max}%。`));body.append(detail);const a=el('div','so-actions');a.append(btn('稍后再看',()=>{persist({...state,snoozeUntil:Date.now()+86400000});close();}),btn('去优化',()=>start(p,st,'proactive'),'so-primary'));body.append(a,el('small','so-note','主动推荐演示 · 不会自动应用'));
   },true);}
- function workbench(){show('多目标策略寻优',body=>{body.append(el('p','so-banner','选择目标生成策略，再确认模拟应用。所有操作只保存在本浏览器，不控制电站。'));const grid=el('div','so-templates');for(const [mode,text]of [['backup','停电备用电'],['life','电池寿命优先'],['profit','SOC约束内收益优先'],['arbitrage','谷充峰放']])grid.append(btn(modeIcon[mode]+' '+text,()=>start(paramsFor(mode,plants()[0]))));body.append(grid,el('h3','','主动推荐演示'));for(const [mode,text]of [['arbitrage','演示：小源发现省钱机会'],['backup','演示：停电风险与备用电'],['life','演示：温升后的保守策略']])body.append(btn(text,()=>recommend(mode),'so-workbench-row'));body.append(btn('重新演示省钱提醒',()=>{close();global.SolarReminders?.replaySaving();},'so-workbench-row'));body.append(el('h3','','已模拟应用的策略'));const saved=Object.values(state.applied);if(!saved.length)body.append(el('p','so-note','还没有模拟应用的方案。确认卡片后会显示在这里，刷新可保留。'));for(const a of saved){const card=el('div','so-applied');card.append(el('strong','',a.plantName+' · '+title(a.params)),el('p','',`SOC ${a.params.min}%–${a.params.max}% · 仅演示状态`),btn('查看方案',()=>start(a.params,plant(a.plantId),'saved')),btn('撤销模拟应用',()=>{undo(a.plantId);workbench();}));body.append(card);}});}
- function handle(q){if(/^(查看|打开)?(我的)?(多目标)?策略(优化|寻优|调优|中心)?[。！？?\s]*$/.test(q)){workbench();return true;}if(/演示.*主动推荐|主动推荐.*演示|发现.*省钱机会/.test(q)){recommend();return true;}const p=M.parse(q);if(!p)return false;const st=target(q);p.criticalKw=paramsFor(p.mode,st).criticalKw;start(p,st);return true;}
+ function workbench(){openChatSkill('battery');}
+ function manageApplied(){
+  show('已下达的策略',body=>{
+   const list=el('div','so-applied-list');body.append(list);renderApplied(list);
+  });
+  void pollCommands(true);
+ }
+ function renderApplied(list){
+  list.replaceChildren();
+  const records=Object.values(state.applied);
+  if(!records.length)list.append(el('p','so-note','此浏览器还没有下达的策略。'));
+  const labels={pending:'待执行',done:'已执行',failed:'执行失败',unknown:'结果待核实'};
+  for(const record of records){
+   const card=el('div','so-applied');
+   const revoke=btn('撤销策略',()=>undo(record.plantId));
+   revoke.disabled=record.status!=='done'||submitting.has(record.plantId);
+   card.append(el('strong','',record.plantName+' · '+title(record.params)),
+    el('p','',`SOC ${record.params.min}%–${record.params.max}% · ${labels[record.status]||'待核实'}`),
+    btn('查看方案',()=>start(record.params,plant(record.plantId),'saved')),revoke);
+   if(record.status==='unknown')card.append(btn('查询执行结果',()=>pollCommands(true)));
+   list.append(card);
+  }
+ }
+ function handle(q){
+  if(/^(查看|打开)?(已下达的策略|我的策略|策略中心)[。！？?\s]*$/.test(q)){manageApplied();return true;}
+  if(/^(查看|打开)?(多目标)?策略(优化|寻优|调优)?[。！？?\s]*$/.test(q)){workbench();return true;}
+  const p=M.parse(q.replace(/^针对「[^」]+」，/,''));if(!p)return false;
+  const st=target(q);p.criticalKw=paramsFor(p.mode,st).criticalKw;start(p,st);return true;
+ }
  function fromReminder(mode,pid){recommend(mode,pid);}
  function renderOpportunity(container,pid){const st=plant(pid),p=paramsFor('arbitrage',st),r=M.solve(p,st),box=el('div','so-card'),tiles=el('div','so-metrics');tiles.append(metric('预计每日节省','¥'+n(r.saving,2),'演示测算'),metric('推荐策略','谷充峰放',st.name));box.append(tiles,chart({params:p,result:r}),el('small','so-note','假设峰谷电价与负载 · SOC 20%–80% · 不会自动应用'));container.append(box);}
- global.StrategyDemo=Object.freeze({handle,open:workbench,fromReminder,renderOpportunity,optimize(pid){const st=plant(pid);start(paramsFor('arbitrage',st),st,'proactive');},optimizeBackup(pid,reserve=60){const st=plant(pid),p=paramsFor('backup',st);p.reserveSOC=reserve;start(p,st,'proactive');}});
+ global.StrategyDemo=Object.freeze({handle,open:workbench,manageApplied,fromReminder,renderOpportunity,optimize(pid){const st=plant(pid);start(paramsFor('arbitrage',st),st,'proactive');},optimizeBackup(pid,reserve=60){const st=plant(pid),p=paramsFor('backup',st);p.reserveSOC=reserve;start(p,st,'proactive');}});
  global.SolarReminders?.refresh();
 })(globalThis);

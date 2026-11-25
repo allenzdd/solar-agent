@@ -11,7 +11,12 @@
   else if(/收益.*最优|收益优先|收益.*最大|收益.*优化|收益.*最高/.test(q))mode='profit';
   else if(/多目标|策略寻优|策略.*调优|储能.*调优|充放电策略.*优化|(?:优化|调优).*(?:策略|充放电)/.test(q))mode=base?.mode||'profit';
   if(!mode)return null;const p={...defaults(mode),...(base?.mode===mode?base:{}),mode,weights:{...presets[mode]}};
-  const range=/(?:SOC|soc)(?:[^\d]{0,12})(\d{1,2})\s*%?\s*[~～\-—–至到]\s*(\d{1,3})\s*%?/.exec(q);if(range){p.min=+range[1];p.max=+range[2];}
+  const range=/SOC[^\d]{0,12}(\d+(?:\.\d+)?)\s*%?\s*[~～\-—–至到]\s*(\d+(?:\.\d+)?)\s*%?/i.exec(q);
+  if(range){
+   p.min=Number(range[1]);p.max=Number(range[2]);
+   // The simulated starting point may move within a new range; measured SOC is untouched.
+   if(mode==='profit' && base?.initialSOC==null) p.initialSOC=Math.min(p.max,Math.max(p.min,p.initialSOC));
+  }
   if(mode==='backup'){const h=/(\d{1,2})\s*[:：]?\s*(?:00)?\s*[~～\-—–至到]\s*(\d{1,2})(?:[:：]00)?\s*(?:点|时)?/.exec(q);if(h){p.start=+h[1];p.end=+h[2];}const r=/(?:备用|预留|备电)[^\d]{0,8}(\d{1,2})\s*%/.exec(q);if(r)p.reserveSOC=+r[1];}
   return p;
  }

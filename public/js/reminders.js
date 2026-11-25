@@ -291,6 +291,7 @@
       render();
     },
     openContext(){if(!context)return false;context.onOpen();return true;},
+    clearContext(owner){if(context?.owner===owner)globalThis.SolarReminders.setContext(null);},
     refresh: render,
     replaySaving() {
       const event=sorted().find(e=>e.type==='saving-opportunity'&&e.status==='active');

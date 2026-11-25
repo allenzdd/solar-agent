@@ -84,7 +84,7 @@
       : '「'+task.name+'」'+status(task)+'。下面是最新处理进展。';
     const row=addMsg('ai',message);
     row.querySelector('.bubble').append(card(task));
-
+    
   }
   function card(task){
     const box=el('section','tf-card');box.dataset.taskId=task.id;

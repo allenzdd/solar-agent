@@ -33,7 +33,7 @@ async function testModelConnection() {
   } catch (cause) { setSheetStatus(cause.message); }
 }
 function attachRetry(row, question, images) {
-  const retry = document.createElement('span'); retry.className = 'retry'; retry.textContent = '重试';
+  const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'retry'; retry.textContent = '重试';
   retry.onclick = function () { retry.remove(); sendRetry(question, images); }; row.querySelector('.bubble').appendChild(retry);
 }
 async function askModel(question, images) {
@@ -43,7 +43,7 @@ async function askModel(question, images) {
   abortCtl = controller; setGenerating(true);
   let text = '', dataSource = '';
   try {
-    text = await SolarApi.chat({ messages: buildMessages(question, images), signal: controller.signal, onSource(value){dataSource=value;}, onDelta(value) { text = value; if (convoId === conversation) setBubbleText(row, value); } });
+    text = await SolarApi.chat({ messages: buildMessages(question, images), signal: controller.signal, onSource(value){dataSource=value;}, onAgentEvent(event){if(convoId!==conversation)return;const note=document.getElementById('xy-note');if(note)note.textContent=event.type==='tool_start'?'正在查询电站数据…':event.type==='completed'?'电站数据分析完成':'正在分析 · 第 '+event.step+' 步';}, onDelta(value) { text = value; if (convoId === conversation) setBubbleText(row, value); } });
     if (convoId !== conversation) return;
     if(dataSource==='server-query'){const source=document.createElement('small');source.className='xy-query-source';source.textContent='已查询服务器保存的电站数据';row.querySelector('.bubble').append(source);}
     if (!text) setBubbleText(row, '（模型未返回内容，请重试）');
@@ -54,5 +54,5 @@ async function askModel(question, images) {
       setBubbleText(row, (text || '（已停止生成）') + (text ? '\n\n[已停止]' : ''));
       if (text) convo.history.push({ role: 'user', content: question }, { role: 'assistant', content: text });
     } else { setBubbleText(row, (text ? text + '\n\n' : '') + '⚠ ' + cause.message); attachRetry(row, question, images); globalThis.HumanSupportDemo?.afterFailure(question); }
-  } finally { if (abortCtl === controller) { setGenerating(false); abortCtl = null; } }
+  } finally { if (abortCtl === controller) { setGenerating(false); abortCtl = null; setNote(modelConfig.configured?'online':'offline'); } }
 }

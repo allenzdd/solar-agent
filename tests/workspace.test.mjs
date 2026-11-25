@@ -46,6 +46,34 @@ test('lease takeover fences the old publisher; queued commands are ordered, idem
   assert.equal((await api(request('commands', 'POST', { id: 'c3', type: 'soc' }, env.APP_CONTROL_TOKEN), env)).status, 409);
 });
 
+test('POST snapshot upload enforces the same authentication and publisher lease as PUT', async () => {
+  const s=memory(),api=createWorkspaceApi(s);
+  assert.equal((await api(request('state','POST',{owner:'one',snapshot}),env)).status,401);
+  await api(request('lease','POST',{owner:'one'},env.MANAGER_TOKEN),env);
+  assert.equal((await api(request('state','POST',{owner:'other',snapshot},env.MANAGER_TOKEN),env)).status,409);
+  assert.equal((await api(request('state','POST',{owner:'one',snapshot:{}},env.MANAGER_TOKEN),env)).status,400);
+  assert.equal((await api(request('state','POST',{owner:'one',snapshot},env.MANAGER_TOKEN),env)).status,200);
+  assert.equal((await s.read('workspace')).snapshot.plants[0].name,plant.name);
+  await api(request('lease','POST',{owner:'two',takeover:true},env.MANAGER_TOKEN),env);
+  const previous=await s.read('workspace');
+  assert.equal((await api(request('state','POST',{owner:'one',snapshot},env.MANAGER_TOKEN),env)).status,409);
+  assert.deepEqual(await s.read('workspace'),previous);
+});
+
+test('gzip snapshot uploads preserve data, reject corrupt streams and bound expanded request size',async()=>{
+  const s=memory(),api=createWorkspaceApi(s);
+  await api(request('lease','POST',{owner:'one'},env.MANAGER_TOKEN),env);
+  const compressed=async value=>new Response(new Blob([JSON.stringify(value)]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
+  const send=body=>api(new Request('https://solar.test/api/workspace/state',{method:'POST',headers:{Authorization:'Bearer '+env.MANAGER_TOKEN,'Content-Type':'application/json','Content-Encoding':'gzip'},body}),env);
+  const data={owner:'one',snapshot:{...snapshot,probe:'光储数据'.repeat(10000)}};
+  assert.equal((await send(await compressed(data))).status,200);
+  assert.equal((await s.read('workspace')).snapshot.probe,data.snapshot.probe);
+  const previous=await s.read('workspace');
+  assert.equal((await send(new TextEncoder().encode('broken gzip'))).status,400);
+  assert.equal((await send(await compressed({padding:'x'.repeat(8000001)}))).status,413);
+  assert.deepEqual(await s.read('workspace'),previous);
+});
+
 test('disk storage survives a new instance and serializes concurrent updates', async () => {
   const temporaryRoot = path.resolve('.test-data');
   await fs.mkdir(temporaryRoot, { recursive: true });

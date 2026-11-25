@@ -142,6 +142,7 @@
     const tools=el('div','om-panel-tools');tools.append(button('近期关注',()=>{activeTab='recent';openManager();},'om-text-button'),button('换一组',()=>{rotation+=3;render();},'om-text-button'));panel.append(tools);
     const strip=el('div','om-strip');ordered.forEach(r=>strip.append(capsule(r,true)));panel.append(strip);compact.append(panel);
     globalThis.CustomSkills?.renderShortcut(heading,compact,()=>{expanded=false;render();});
+    globalThis.appendWelcomeShortcuts?.(heading);
     if(storageFailed&&expanded)compact.append(el('p','om-caption','本次记忆仅在当前页面保留。'));
   }
   function inertSiblings(on){[...overlay.parentElement.children].filter(e=>e!==overlay).forEach(e=>{e.inert=on;});}

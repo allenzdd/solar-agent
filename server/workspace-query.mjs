@@ -1,7 +1,9 @@
 import {applyInverterDrill} from './inverter-drill.mjs';
 import {enrichEnergySnapshot} from './energy.mjs';
+import {applySeasonalShade} from './seasonal-shade.mjs';
+import {projectTargetSoc} from './target-soc.mjs';
 
-const scopes=['catalog','current','config','history','samples','reminders','reports','operations','storage'];
+const scopes=['catalog','current','config','history','samples','reminders','reports','operations','storage','devices','alarms','weather','tariffs','energy','health'];
 const properties={
  scope:{type:'string',enum:scopes},
  lastDays:{type:'integer',minimum:1,maximum:365,description:'最近N天必须填N，含末日。默认末日是真实北京时间今天，不是最后保存日。'},
@@ -30,11 +32,11 @@ export async function queryWorkspace(store,args,{now=Date.now(),manager=false,or
  const beijing=ms=>Number.isFinite(ms)?new Date(ms+8*3600000).toISOString().slice(0,19).replace('T',' ')+' UTC+08:00':null;
  const times=(p,keys)=>Object.fromEntries(keys.map(k=>[k+'Beijing',beijing(p?.[k])]));
  const [document,history]=await Promise.all([store.read('workspace'),store.read('history')]);
- const w=document||{},snapshot=enrichEnergySnapshot(applyInverterDrill(w,w.snapshot||null,now),history);
+ const w=document||{},snapshot=applySeasonalShade(w,projectTargetSoc(w,enrichEnergySnapshot(applyInverterDrill(w,w.snapshot||null,now),history)),now);
  const config=w.config||[],plants=snapshot?.plants||[],datasets=history?.datasets||[];
  const names=new Map([...config,...plants].map(p=>[p.id,p.name]));
  const coverage=datasets.map(d=>({plantId:d.plantId,plantName:d.plantName,month:d.month,from:d.daily?.[0]?.date,to:d.daily?.at(-1)?.date,days:d.daily?.length||0,hours:d.hourly?.length||0,completeMonth:!!d.completeMonth,temperatureStored:!!d.hourly?.some(h=>Number.isFinite(h.invTempEnd))}));
- const meta={source:'服务器持久化仿真数据，非现场实测',queriedAt:new Date(now).toISOString(),queriedAtBeijing:beijing(now),lastSnapshotAtBeijing:beijing(snapshot?.ts),lastSnapshotAtISO:Number.isFinite(snapshot?.ts)?new Date(snapshot.ts).toISOString():null,snapshotAgeSeconds:Number.isFinite(snapshot?.ts)?Math.max(0,Math.round((now-snapshot.ts)/1000)):null,serverDateBeijing:date(now),simulationTime:snapshot?.time||null,lastSnapshotAt:snapshot?.ts||null,stale:!snapshot||now-snapshot.ts>30000,units:{power:'kW',pvCapacity:'kWp',energy:'kWh',temperature:'℃',soc:'%',revenue:'按电站tariff.cur货币'},historyCutoffUtc:history?.end||null,historyCutoffBeijing:beijing(history?.end)};
+ const meta={...(snapshot?.intentEvent?{activeScenario:snapshot.intentEvent}:{}),source:'服务器持久化仿真数据，非现场实测',queriedAt:new Date(now).toISOString(),queriedAtBeijing:beijing(now),lastSnapshotAtBeijing:beijing(snapshot?.ts),lastSnapshotAtISO:Number.isFinite(snapshot?.ts)?new Date(snapshot.ts).toISOString():null,snapshotAgeSeconds:Number.isFinite(snapshot?.ts)?Math.max(0,Math.round((now-snapshot.ts)/1000)):null,serverDateBeijing:date(now),simulationTime:snapshot?.time||null,lastSnapshotAt:snapshot?.ts||null,stale:!snapshot||now-snapshot.ts>30000,units:{power:'kW',pvCapacity:'kWp',energy:'kWh',temperature:'℃',soc:'%',revenue:'按电站tariff.cur货币'},historyCutoffUtc:history?.end||null,historyCutoffBeijing:beijing(history?.end)};
  const queries=Array.isArray(args?.queries)?args.queries:args?.scope?[args]:[];
  if(!queries.length||queries.length>6)return {...meta,error:'一次需提供1–6个查询。'};
  function run(q){
@@ -70,8 +72,14 @@ export async function queryWorkspace(store,args,{now=Date.now(),manager=false,or
     return {...pick(row,['plantId','plantName','date','hour','utc','timeBeijing']),...Object.fromEntries([...new Set([...wanted,...(row.date?['dayPv']:[])])].filter(k=>Object.hasOwn(row,k)).map(k=>[k,row[k]]))};
   }):rows;
   if(q.scope==='catalog')return {plants:[...names].map(([id,name])=>({id,name})),categories:scopes,coverage,retention:'实时仅最新快照和最多200个近期采样；历史按实际已保存范围，缺失温度或未来日期不可补造。',historyWindow:history?.window||null};
+  if(q.scope==='devices')return {plants:ids.map(id=>{const p=plants.find(p=>p.id===id),c=config.find(p=>p.id===id);return {plantId:id,plantName:names.get(id),devices:[...(c||p?[{id:id+':inverter',type:'inverter',virtual:true,capacityKw:c?.invKw??p?.cfg?.invKw??null,telemetry:pick(p,['pv','invTemp','inverterThermal'])}]:[]),...(c?.batKw>0||p?.cfg?.batKw>0?[{id:id+':battery',type:'battery',virtual:true,capacityKw:c?.batKw??p?.cfg?.batKw??null,capacityKwh:p?.cfg?.batKwh??(Number.isFinite(c?.batHours)?c.batKw*c.batHours:null),telemetry:pick(p,['bat','soc','batTemp'])}]:[])],note:'由仿真配置映射的电站级虚拟设备；没有物理设备序列号或逐台逆变器遥测。'};})};
+  if(q.scope==='alarms')return {...page((snapshot?.alarms||[]).filter(a=>!a.st||ids.some(id=>names.get(id)===a.st)).map(a=>pick(a,['title','lv','dev','st','t']))),events:page((w.assistant?.events||[]).filter(e=>ids.includes(e.plantId)&&(!q.status||q.status==='all'||e.status===q.status)&&(!q.type||e.type===q.type)&&inDate(date(e.simUtc||e.createdAt))).map(e=>({...pick(e,['id','plantId','plantName','deviceId','type','status','level','simulation','demo','title','summary','advice','evidence']),...times(e,['createdAt','updatedAt','simUtc'])}))),note:'仿真快照告警与服务端提醒事件；快照告警没有结构化历史日期，日期与状态筛选仅作用于events。'};
+  if(q.scope==='weather')return {plants:ids.map(id=>({plantId:id,plantName:names.get(id),cloudPercent:(()=>{const c=plants.find(p=>p.id===id)?.cloud??config.find(p=>p.id===id)?.cloud;return Number.isFinite(c)?c*100:null;})(),observedWeather:null,forecast:null,available:false})),note:'当前仅有仿真云量参数，未接气象实测或预报服务，不能据此声称真实天气。'};
+  if(q.scope==='tariffs')return {plants:ids.map(id=>({plantId:id,plantName:names.get(id),tariff:config.find(p=>p.id===id)?.tariff??plants.find(p=>p.id===id)?.tariff??null})),note:'返回已保存电价配置，收益应按各站币种分别展示。'};
+  if(q.scope==='energy')return {plants:plants.filter(matches).map(p=>pick(p,['id','name','pv','load','bat','grid','soc','dayPv','dayLoad','dayImp','dayExp','dayChg','dayDis','dayRev','daySelf','energyTotals','tariff'])),note:'瞬时功率单位kW，电量kWh；当天数值对应simulationTime，缺失值为null。历史区间电量请查询history。'};
+  if(q.scope==='health')return {plants:ids.map(id=>{const p=plants.find(p=>p.id===id);return {plantId:id,plantName:names.get(id),snapshotAvailable:!!p,stale:meta.stale,invTemp:p?.invTemp??null,batTemp:p?.batTemp??null,soc:p?.soc??null,inverterThermal:p?.inverterThermal??null,activeEvents:(w.assistant?.events||[]).filter(e=>e.plantId===id&&e.status==='active').map(e=>pick(e,['id','type','level','title','summary','demo'])),healthScore:null};}),note:'仅返回可验证的状态和预警依据，没有设备寿命或综合健康评分模型。'};
   if(q.scope==='config')return {plants:config.filter(matches).map(p=>({...pick(p,['id','name','country','city','tz','geo','type','mode','invKw','ratio','batKw','batHours','socMin','socMax','tariff','start','created','closed','cloud','loadScale','batMode','gridOut','useLoadFile']),derived:pick(plants.find(x=>x.id===p.id)?.cfg,['pvKwp','batKwh','invKw','batKw','loadPeak','gridKw','pr','eff'])}))};
-  if(q.scope==='current')return {plants:plants.filter(matches).map(p=>pick(p,['id','name','city','tz','local','cfg','invKw','ratio','batKw','batHours','pv','load','demand','bat','grid','shed','curtail','soc','socMin','socMax','invTemp','batTemp','inverterThermal','dayPv','dayLoad','dayImp','dayExp','dayChg','dayDis','dayRev','daySelf','totalBase','totalRev','energyTotals','tariff','closed','gridOut','batMode','cloud','loadScale'])),note:'以上为仿真时钟对应的最新快照，不一定是现实今天；dayPv为当日kWh，pv为瞬时kW。totalBase为日初累计基数，不能直接当作当前累计发电量。'};
+  if(q.scope==='current')return {plants:plants.filter(matches).map(p=>pick(p,['id','name','city','tz','local','cfg','invKw','ratio','batKw','batHours','pv','load','demand','bat','grid','shed','curtail','soc','socMin','socMax','invTemp','batTemp','inverterThermal','dayPv','dayLoad','dayImp','dayExp','dayChg','dayDis','dayRev','daySelf','totalBase','totalRev','energyTotals','tariff','closed','gridOut','batMode','cloud','loadScale','targetSoc'])),note:'以上为仿真时钟对应的最新快照，不一定是现实今天；dayPv为当日kWh，pv为瞬时kW。totalBase为日初累计基数，不能直接当作当前累计发电量。'};
   if(q.scope==='history'){
    const resolution=q.resolution||'daily';if(!['summary','daily','hourly'].includes(resolution))return {error:'不支持的历史分辨率'};
    const selected=datasets.filter(d=>ids.includes(d.plantId));
