@@ -79,7 +79,7 @@ ${section('06','方案对比与下一步',`<table><thead><tr><th>方案</th><th>
 const fields=[['location','项目位置','text'],['area','屋顶面积（㎡）'],['annualLoad','年用电量（度）'],['usable','屋顶可用率（%）'],['density','布置密度（W/㎡）'],['yieldHours','年等效利用小时（h）'],['selfUse','光伏自用率（%）'],['retail','自用电价值（元/度）'],['exportPrice','上网电价（元/度）'],['pvCost','光伏综合造价（元/W）'],['storageCount','储能柜数量（台）'],['peak','峰电价（元/度）'],['valley','谷电价（元/度）']];
 function btn(text,fn,cls){const b=$('button',cls,text);b.type='button';b.onclick=fn;return b;}
 function editor(host,input,onGenerate){host.replaceChildren();const title=$('h3','','确认项目参数'),note=$('p','sd-note','已从需求提取位置、面积和年用电。其余为可修改的测算假设。');host.append(title,note);const form=$('form','sd-form');for(const[k,label,type]of fields){const l=$('label','',label),i=$('input');i.name=k;i.type=type||'number';i.value=input[k];i.required=true;if(i.type==='number'){i.step='any';i.min=k==='storageCount'?'0':'0.001';}l.append(i);form.append(l);}const e=$('p','sd-error');e.setAttribute('role','alert');const submit=$('button','sd-primary','生成定容报告');submit.type='submit';form.append(e,submit);form.onsubmit=ev=>{ev.preventDefault();try{const p={...input};for(const i of form.querySelectorAll('input'))p[i.name]=i.type==='number'?i.valueAsNumber:i.value;onGenerate(M.validate(p));}catch(c){e.textContent=c.message;}};host.append(form);}
-function show(p) {
+function show(p, archivedContent) {
   const assistant = document.getElementById('xiaoyuan');
   if (!assistant) return;
   const previousFocus = document.activeElement;
@@ -88,7 +88,8 @@ function show(p) {
   overlay.setAttribute('aria-label',title);
   const body = $('div','sd-scroll');
   body.tabIndex = 0;
-  body.innerHTML = report(M.calculate(p));
+  if (archivedContent) body.append(archivedContent);
+  else body.innerHTML = report(M.calculate(p));
 
   const reading = $('div','sd-reading');
   const track = $('div','sd-scroll-indicator');
@@ -129,6 +130,7 @@ function show(p) {
   const chevron = assistant.querySelector('.xy-top .bk svg');
   if (chevron) back.append(chevron.cloneNode(true));
   else back.textContent = '‹';
+  back.append($('span','sd-back-label','返回对话'));
   navigation.append(back,$('span','ti',title));
   overlay.append(navigation,reading);
   assistant.append(overlay);
@@ -152,12 +154,15 @@ function generate(p) {
       entry.append($('dt','',label),$('dd','',value));
       metrics.append(entry);
     }
+    const actions = $('div','sd-actions');
+    actions.append(
+      btn('查看完整报告',()=>show(r.p),'sd-primary'),
+      btn('调整参数重新测算',()=>draft(p))
+    );
     card.append(
       $('h3','','光储项目定容报告'),
       $('p','sd-project-brief',p.location+' · '+fmt(p.area)+' ㎡ · 年用电 '+wan(p.annualLoad)+' 万度'),
-      metrics,
-      btn('查看完整报告',()=>show(r.p),'sd-primary'),
-      btn('调整参数重新测算',()=>draft(p))
+      metrics, actions
     );
     bubble.append(inventory,card);
     g.ChatHistory?.rememberDesign(row, r.p);
@@ -165,6 +170,71 @@ function generate(p) {
   } catch(c) {
     addMsg('ai','无法生成报告：'+c.message);
   }
+}
+function restoreLegacy(message, source) {
+  const text = message.text;
+  if (!text.includes('光储项目定容报告') || !text.includes('设备清单') || !text.includes('光伏装机')) return false;
+  const [before, summary] = text.split('光储项目定容报告');
+  const [intro, inventoryText] = before.split('设备清单');
+  if (!summary || !inventoryText) return false;
+  const lines = summary.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  const row = addMsg('ai',intro.trim());
+  const bubble = row.querySelector('.bubble');
+  const inventory = $('div','sd-chat-inventory');
+  let table = source?.querySelector('table');
+  if (table) table = table.cloneNode(true);
+  else {
+    table = $('table');
+    table.append($('caption','','设备清单'));
+    const head = table.createTHead().insertRow();
+    for (const label of ['品牌 / 设备','型号 / 规格','数量']) head.append($('th','',label));
+    const body = table.createTBody();
+    const equipment = inventoryText.replace(/^[\s\S]*?数量\s*/, '').trim();
+    const rows = equipment.split(/(?<=[\d,]\s*(?:台|块))\s+(?=\S)/);
+    for (const part of rows) {
+      const tr = body.insertRow();
+      let cells = part.trim().split(/\s*\t\s*/);
+      if (cells.length !== 3) {
+        const match=part.trim().match(/^([\s\S]*?(?:光伏组件|组串式逆变器|通信网关|组件优化器|储能柜(?:（可选）)?))\s+([\s\S]+?)\s+([\d,]+\s*(?:台|块))$/);
+        if (match) cells=match.slice(1);
+      }
+      if (cells.length === 3) {
+        for (const cell of cells) {
+          const td = tr.insertCell();
+          const [first,...rest] = cell.split(/\n+/);
+          td.append(document.createTextNode(first));
+          if (rest.length) td.append($('small','',rest.join(' ')));
+        }
+      } else {
+        const td = tr.insertCell();
+        td.colSpan = 3;
+        td.textContent = part;
+      }
+    }
+  }
+  table.className='sd-inventory';
+  inventory.append(table);
+  const card=$('section','sd-chat-card sd-estimate-card'), metrics=$('dl','sd-estimate-metrics');
+  const savedMetrics=source?.querySelector('dl');
+  if (savedMetrics) metrics.append(...savedMetrics.cloneNode(true).childNodes);
+  else for (const label of ['光伏装机','首年发电','仅光伏静态回本年限']) {
+    const index=lines.indexOf(label);
+    if (index<0 || !lines[index+1]) continue;
+    const item=$('div');
+    item.append($('dt','',label),$('dd','',lines[index+1]));
+    metrics.append(item);
+  }
+  const brief=source?.querySelector('section h3 + p')?.textContent || lines[0] || '';
+  card.append($('h3','','光储项目定容报告'),$('p','sd-project-brief',brief),metrics);
+  const actions=$('div','sd-actions');
+  actions.append(btn('查看已保存报告',()=>{
+    const content=$('article','sd-content');
+    content.append($('h2','','光储项目定容报告'),$('p','',brief),metrics.cloneNode(true),inventory.cloneNode(true));
+    show(null,content);
+  },'sd-primary'));
+  card.append(actions);
+  bubble.append(inventory,card);
+  return true;
 }
 function draft(p){const row=addMsg('ai','可以，先确认项目输入和测算假设：'),card=$('div','sd-chat-card');row.querySelector('.bubble').append(card);editor(card,{...M.defaults,...p},n=>{generate(n);card.querySelector('button[type="submit"]').disabled=true;});const chat=document.getElementById('xy-chat');chat.scrollTop=chat.scrollHeight;}
 function handle(q){
@@ -174,6 +244,6 @@ function handle(q){
   generate({...M.defaults,...p});return true;
 }
 function open(){openChatSkill('design');}
-g.SimpleDesign=Object.freeze({handle,open,show,report,generate});
+g.SimpleDesign=Object.freeze({handle,open,show,report,generate,restoreLegacy});
 const root=document.getElementById('design-report-root');if(root){try{const p={...M.defaults};for(const[k,v]of new URLSearchParams(location.search))if(k in p)p[k]=v;root.innerHTML=report(M.calculate(p));document.getElementById('design-print').onclick=()=>print();}catch(c){root.textContent='无法生成报告：'+c.message;}}
 })(globalThis);

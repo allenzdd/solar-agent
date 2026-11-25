@@ -18,6 +18,7 @@
 
   root.addEventListener('pointerdown', event => {
     suppressClick = false;
+    if (document.body.dataset.view === 'desktop') return;
     if (event.pointerType !== 'mouse' || event.button !== 0 || event.shiftKey || event.ctrlKey ||
         event.target.closest('input,select,textarea,[contenteditable=true],.pw-plot,.xy-voice-hold')) return;
     const x = event.target.closest(horizontal);

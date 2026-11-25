@@ -121,9 +121,9 @@ function renderStations(f){
   if (!list.length) { box.innerHTML = '<div class="empty-tip">没有更多数据了</div>'; return; }
   box.innerHTML = list.map(({s,i})=>`
     <div class="sw-row" data-i="${i}">
-      <div class="sw-acts"><span class="sw-del" onclick="event.stopPropagation();askDeleteStation(${i})">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h16M9.5 7V4.8h5V7M6.6 7l.8 12.2h9.2L17.4 7"/><path d="M10.2 11v4.8M13.8 11v4.8"/></svg>删除</span></div>
-    <div class="card station">
+      <div class="sw-acts"><button type="button" class="sw-del" onclick="event.stopPropagation();askDeleteStation(${i})">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h16M9.5 7V4.8h5V7M6.6 7l.8 12.2h9.2L17.4 7"/><path d="M10.2 11v4.8M13.8 11v4.8"/></svg>删除</button></div>
+    <div class="card station" tabindex="0" role="button">
       <div class="thumb">${houseSVG(i)}</div>
       <div class="body">
         <div class="name">${s.name}${s.live?'<i class="live-dot"></i>':''}</div>
@@ -167,6 +167,11 @@ function bindSwipe(){
   const box = document.getElementById('station-list');
   if (!box || box._sw) return;
   box._sw = true;
+  box.addEventListener('keydown', e => {
+    if (!e.target.matches('.station') || !['Enter', ' '].includes(e.key)) return;
+    e.preventDefault();
+    openPlantDetail(+e.target.closest('.sw-row').dataset.i);
+  });
 
   box.addEventListener('pointerdown', function(e){
     if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -1851,24 +1856,16 @@ function go(p){
 
   function scaleFactor(){
     const r = screenEl.getBoundingClientRect();
-    return (r.width / 393) || 1;
+    return (r.width / screenEl.offsetWidth) || 1;
   }
   function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
-  function syncFromLayout(){
-    const r = ball.getBoundingClientRect();
-    const s = screenEl.getBoundingClientRect();
-    const k = scaleFactor();
-    ball.style.left = ((r.left - s.left) / k) + 'px';
-    ball.style.top  = ((r.top  - s.top)  / k) + 'px';
-  }
-  syncFromLayout();
 
   ball.addEventListener('pointerdown', ev => {
     if (ev.button != null && ev.button !== 0) return;
     dragging = true; moved = false;
     sx = ev.clientX; sy = ev.clientY;
-    ox = parseFloat(ball.style.left) || 0;
-    oy = parseFloat(ball.style.top) || 0;
+    ox = ball.offsetLeft;
+    oy = ball.offsetTop;
     try { ball.setPointerCapture(ev.pointerId); } catch(e){}
   });
 
@@ -1898,8 +1895,8 @@ function go(p){
   });
   window.addEventListener('resize', () => {
     requestAnimationFrame(() => {
-      ball.style.left = clamp(parseFloat(ball.style.left) || 0, PAD, 393 - SIZE - PAD) + 'px';
-      ball.style.top  = clamp(parseFloat(ball.style.top) || 0, TOP_LIMIT, 852 - SIZE - BOTTOM_RESERVE) + 'px';
+      if (ball.style.left) ball.style.left = clamp(parseFloat(ball.style.left), PAD, screenEl.clientWidth - SIZE - PAD) + 'px';
+      if (ball.style.top) ball.style.top = clamp(parseFloat(ball.style.top), TOP_LIMIT, screenEl.clientHeight - SIZE - BOTTOM_RESERVE) + 'px';
     });
   });
 })();
@@ -3818,8 +3815,9 @@ document.querySelectorAll('.fchip').forEach(c => c.addEventListener('click', () 
 function fitPhone(){
   const slot = document.getElementById('phone-slot');
   const phone = slot.querySelector('.phone');
-  const aside = window.innerWidth > 1000 ? 492 : 0;
-  const s = Math.min(1, (window.innerHeight - 44) / 900, (window.innerWidth - 44 - aside) / 445);
+  const reserved = document.body.hasAttribute('data-handset') ? 44 : 104;
+  const s = document.body.dataset.view === 'desktop' ? 1 :
+    Math.max(0.1, Math.min(1, (window.innerHeight - reserved) / 852, (window.innerWidth - 44) / 393));
   phone.style.transform = s < 1 ? 'scale(' + s + ')' : '';
   slot.style.width  = s < 1 ? (393 * s) + 'px' : '';
   slot.style.height = s < 1 ? (852 * s) + 'px' : '';

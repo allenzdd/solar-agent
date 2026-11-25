@@ -25,11 +25,52 @@
  }
  function thermal(d,box){box.append(el('h3','','逆变器温升预测'),el('p','',`当前温度：${finite(d.temp)?fmt(d.temp)+' ℃':'暂无有效观测'} · 演示阈值 70 ℃`));if(d.lastHot){const h=d.lastHot;box.append(el('strong','hd-alert','历史过热记录：'+fmt(h.risk.currentC)+' ℃'),el('p','hd-note',(h.status==='archived'?'已归档的演练，不代表当前仍过热。':h.status==='active'?'告警尚未恢复。':'已恢复的历史告警。')+' 仿真事件时间：'+time(h.simUtc)));}if(d.activeHot||d.snapshotHot||d.lastHot){box.append(el('h4','','处理建议'),el('p','','1. 在运维页面核对告警码与最新温度；若数据停更，先恢复数据同步。'),el('p','','2. 由运维人员检查通风、风扇、散热片积尘及负载变化，按设备维护规程处理。'),el('p','','3. 处理后持续观察温度是否回落；仍高温或反复告警时联系安装商复查。'));}const r=d.risk;if(r?.etaMinutes&&r.points?.length){const all=r.points.filter(p=>finite(p.temperature));const p=all.filter((_,i)=>i===0||i===all.length-1||i%Math.max(1,Math.ceil(all.length/5))===0).slice(-7);if(p.length)box.append(graph([...p.map(x=>x.temperature),r.thresholdC],p.map((_,i)=>i===p.length-1?'当前':i===0?'观测':'').concat('阈值'),true));box.append(el('strong','hd-alert',`若升温趋势持续，约 ${r.etaMinutes} 个仿真分钟后达到 ${r.thresholdC} ℃`),el('p','hd-note',`实线为${d.demo?'演示采样':'仿真观测'}，虚线为线性外推；不是已发生数据。`));}else box.append(el('p','hd-note',d.stale?'数据停更，暂不外推。':finite(d.temp)&&d.temp>=70?'最后观测已达到演示阈值，请优先排查。':'当前没有满足条件的温升预测记录；不代表不存在风险。'));box.append(el('p','','建议由运维人员检查通风、散热片积尘、风扇状态与负载变化；实际温度限值以设备规范为准。'));}
  function dialog(title,fill){const focus=document.activeElement,layer=el('section','hd-layer'),head=el('header'),body=el('div','hd-body');layer.setAttribute('role','dialog');layer.setAttribute('aria-modal','true');layer.setAttribute('aria-label',title);const close=()=>{layer.remove();focus?.focus();},x=button('关闭',close);head.append(el('strong','',title),x);layer.append(head,body);document.querySelector('.screen').append(layer);fill(body);x.focus();layer.onkeydown=e=>{if(e.key==='Escape')close();};}
- function card(d,started){const row=addMsg('ai',''),box=el('div','hd-card'),score=el('div','hd-score'),ring=el('div','hd-ring');ring.style.setProperty('--score',(d.score??0)+'%');ring.append(el('strong','',d.score===null?'—':String(d.score)),el('small','','/100'));const info=el('div');info.append(el('strong','',d.score===null?'暂不评分':d.activeHot||d.snapshotHot?'逆变器过热，优先处理':d.stale?'最后快照评分':d.score>=85?'整体运行良好':'建议优先检查'),el('small','',d.demo?'较上月 ↑ 6 分':d.stale?'数据停更 · 不代表当前健康度':'演示规则评分'));score.append(ring,info);box.append(el('h3','','电站健康度'),el('p','hd-note',d.name),el('p','hd-note',d.source),score,el('h4','','健康度趋势'));
-  if(d.trend)box.append(graph(d.trend,['5月','6月','7月','8月','9月','10月']));else box.append(el('p','hd-note','暂无历史评分，未生成趋势曲线。'));
+ function card(d,started){const row=addMsg('ai',''),box=el('div','hd-card'),score=el('div','hd-score'),ring=el('div','hd-ring');ring.style.setProperty('--score',(d.score??0)+'%');ring.append(el('strong','',d.score===null?'—':String(d.score)),el('small','','/100'));const info=el('div');info.append(el('strong','',d.caption??(d.score===null?'暂不评分':d.activeHot||d.snapshotHot?'逆变器过热，优先处理':d.stale?'最后快照评分':d.score>=85?'整体运行良好':'建议优先检查')),el('small','',d.scoreNote??(d.demo?'较上月 ↑ 6 分':d.stale?'数据停更 · 不代表当前健康度':'演示规则评分')));score.append(ring,info);box.append(el('h3','','电站健康度'),el('p','hd-note',d.name),el('p','hd-note',d.source),score,el('h4','','健康度趋势'));
+  if(d.trend)box.append(graph(d.trend,['5月','6月','7月','8月','9月','10月']));else box.append(el('p','hd-note',d.trendNote||'暂无历史评分，未生成趋势曲线。'));
   box.append(el('h4','','风险与状态'));for(const item of d.items){const b=button('',()=>dialog(item.title,body=>item.thermal?thermal(d,body):body.append(el('p','',item.detail||item.note))),'hd-item'),text=el('span');text.append(el('strong','',item.title),el('small','',item.note));b.append(el('span','hd-icon',item.icon),text,el('span','hd-tag '+item.tone,item.tag+' ›'));box.append(b);}
-  box.append(button('查看完整健康报告 ›',()=>dialog('完整健康报告',body=>{body.append(el('h3','',d.name),el('p','hd-note',d.source),el('p','',`健康评分：${d.score??'暂无'} / 100`),el('p','hd-note',d.rule||'评分和月度趋势为固定演示值，非生产健康评级。'));for(const item of d.items)body.append(el('p','',item.title+'：'+item.note));thermal(d,body);}), 'hd-primary'));row.querySelector('.bubble').append(box);showAnswerTime(row,started);convo.history.push({role:'assistant',content:`${d.name}：${d.source}；健康评分 ${d.score??'暂无'}。${d.items.map(i=>i.title+'：'+i.note).join('；')}`});}
+  box.append(button('查看完整健康报告 ›',()=>dialog('完整健康报告',body=>{body.append(el('h3','',d.name),el('p','hd-note',d.source),el('p','',`健康评分：${d.score??'暂无'} / 100`),el('p','hd-note',d.rule||(d.archived?'历史对话保存的健康记录。':'评分和月度趋势为固定演示值，非生产健康评级。')));for(const item of d.items)body.append(el('p','',item.title+'：'+item.note));if(!d.archived)thermal(d,body);}), 'hd-primary'));row.querySelector('.bubble').append(box);globalThis.ChatHistory?.rememberHealth(row,d);if(started===undefined)return row;showAnswerTime(row,started);convo.history.push({role:'assistant',content:`${d.name}：${d.source}；健康评分 ${d.score??'暂无'}。${d.items.map(i=>i.title+'：'+i.note).join('；')}`});}
  async function run(q,isDemo){const started=performance.now();openXY();document.getElementById('xy-intro').classList.add('hide');document.getElementById('xy-chat').classList.add('on');const id=convoId;if(isDemo){card(demo(),started);return;}const loading=addMsg('ai','正在读取电站健康数据…');try{const d=await live(q);if(id===convoId){loading.remove();card(d,started);}}catch{if(id===convoId)setBubbleText(loading,'暂时无法读取电站数据，可以输入“演示电站健康诊断”查看样例。');}}
  const menu=el('a','','◉ 电站健康诊断演示 ›');menu.href='#health';menu.setAttribute('role','menuitem');menu.onclick=e=>{e.preventDefault();closeAppMenu();void run('',true);};document.getElementById('app-more-menu')?.append(menu);
- globalThis.HealthDemo={handle(q){if(!/健康度|健康诊断|健康报告|电站.*健康|逆变器.*(预测|预估|温升趋势|过热风险)|预测.*逆变器/.test(q))return false;void run(q,/演示|demo/i.test(q));return true;}};
+ // Older transcripts retained the card's headings and text but removed its buttons and classes.
+ function recoverLegacy(bubble){
+   const title=bubble.querySelector('h3');
+   if(title?.textContent.trim()!=='电站健康度')return false;
+   const box=title.parentElement;
+   const [name,source,scoreBox]=[...box.children].slice(1,4);
+   const headings=[...box.querySelectorAll('h4')];
+   const risk= headings.find(h=>h.textContent.trim()==='风险与状态');
+   if(!name||!source||!scoreBox||!risk)return false;
+   const scoreText=scoreBox.querySelector('strong')?.textContent.trim();
+   const score=/^\d{1,3}$/.test(scoreText)?Number(scoreText):null;
+   const items=[];
+   for(let icon=risk.nextElementSibling;icon;){
+     const description=icon.nextElementSibling,tag=description?.nextElementSibling;
+     if(!description?.querySelector('strong')||!tag)break;
+     items.push({icon:icon.textContent,title:description.querySelector('strong').textContent,
+       note:description.querySelector('small')?.textContent||'',tag:tag.textContent.replace(/\s*›$/,'')});
+     icon=tag.nextElementSibling;
+   }
+   const trendNote=headings.find(h=>h.textContent.trim()==='健康度趋势')?.nextElementSibling;
+   const data={archived:true,name:name.textContent,source:source.textContent,score,items,
+     caption:scoreBox.children[1]?.querySelector('strong')?.textContent,
+     scoreNote:scoreBox.children[1]?.querySelector('small')?.textContent,
+     trendNote:trendNote?.matches('p')?trendNote.textContent:'原记录未保存趋势曲线数据'};
+   card(data);
+   return true;
+ }
+ function recoverText(text){
+   const lines=text.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
+   const trend=lines.indexOf('健康度趋势'),risk=lines.indexOf('风险与状态');
+   if(lines[0]!=='电站健康度'||trend<2||risk<=trend)return false;
+   const row=addMsg('ai',''),box=el('div','hd-card');
+   box.append(el('h3','',lines[0]));
+   for(const line of lines.slice(1,trend))box.append(el('p','hd-note',line));
+   for(const [heading,values] of [[lines[trend],lines.slice(trend+1,risk)],[lines[risk],lines.slice(risk+1)]]){
+     box.append(el('h4','',heading));
+     for(const line of values.filter(line=>!/^查看完整健康报告/.test(line)))box.append(el('p','',line));
+   }
+   row.querySelector('.bubble').append(box);
+   return true;
+ }
+ globalThis.HealthDemo={restore:card,recoverLegacy,recoverText,handle(q){if(!/健康度|健康诊断|健康报告|电站.*健康|逆变器.*(预测|预估|温升趋势|过热风险)|预测.*逆变器/.test(q))return false;void run(q,/演示|demo/i.test(q));return true;}};
 })();

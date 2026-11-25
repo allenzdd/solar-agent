@@ -116,6 +116,79 @@
  }
  function fromReminder(mode,pid){recommend(mode,pid);}
  function renderOpportunity(container,pid){const st=plant(pid),p=paramsFor('arbitrage',st),r=M.solve(p,st),box=el('div','so-card'),tiles=el('div','so-metrics');tiles.append(metric('预计每日节省','¥'+n(r.saving,2),'演示测算'),metric('推荐策略','谷充峰放',st.name));box.append(tiles,chart({params:p,result:r}),el('small','so-note','假设峰谷电价与负载 · SOC 20%–80% · 不会自动应用'));container.append(box);}
- global.StrategyDemo=Object.freeze({handle,open:workbench,manageApplied,fromReminder,renderOpportunity,optimize(pid){const st=plant(pid);start(paramsFor('arbitrage',st),st,'proactive');},optimizeBackup(pid,reserve=60){const st=plant(pid),p=paramsFor('backup',st);p.reserveSOC=reserve;start(p,st,'proactive');}});
+ // Rebuild old presentation-only records from their recorded metrics and period table.
+ // There is no dispatch binding on archived plans.
+ function restoreLegacy(message,source) {
+   const text=message.text;
+   if(!text.includes('目标权重') || !text.includes('测算假设与时段明细'))return false;
+   const lines=text.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
+   const chartHeading=/^明日(?:收益运行|充放电|备电)计划/;
+   const oldChart=[...(source?.querySelectorAll('strong')||[])].find(e=>chartHeading.test(e.textContent));
+   const oldCard=oldChart?.parentElement.parentElement;
+   if(oldCard?.classList.contains('so-card') && oldCard.querySelector('svg'))return false;
+   const index=lines.findIndex(line=>chartHeading.test(line));
+   const station=lines.findIndex(line=>/·\s*SOC\s*\d/.test(line));
+   if(!oldChart && (index<0 || station<1))return false;
+   const oldHead=oldCard?.firstElementChild, info=oldHead?.children[1];
+   const titleText=info?.querySelector('strong')?.textContent || lines[station-1];
+   const intro=source?.querySelector('p')?.textContent || lines[0];
+   const row=addMsg('ai',intro);
+   const box=el('section','so-card'), head=el('div','so-card-head'), name=el('div');
+   name.append(el('strong','',titleText),el('small','',info?.querySelector('small')?.textContent || lines[station]));
+   head.append(el('span','so-mode-icon',oldHead?.firstElementChild?.textContent || lines[station-2]),name,
+     el('span','so-status',oldHead?.lastElementChild?.textContent || lines[station+1]));
+   box.append(head);
+   const metrics=el('div','so-metrics');
+   if(oldHead?.nextElementSibling) {
+     for(const node of oldHead.nextElementSibling.children) {
+       const label=node.querySelector('small'),note=node.querySelector('span');
+       const value=node.textContent.slice(label?.textContent.length||0, note ? -note.textContent.length : undefined);
+       metrics.append(metric(label?.textContent||'',value,note?.textContent||''));
+     }
+   } else for(let i=station+2;i+2<index;i+=3)metrics.append(metric(lines[i],lines[i+1],lines[i+2]));
+   box.append(metrics);
+   const graph=el('div','so-chart');
+   graph.append(el('strong','',oldChart?.textContent || lines[index]));
+   const table=oldCard?.querySelector('table');
+   const endpoints=[];
+   for(const tr of table?.rows||[]) {
+     const end=tr.cells[0]?.textContent.match(/[–—-](\d{1,2}):00/);
+     const soc=tr.cells[2]?.textContent.match(/^([\d.]+)%$/);
+     if(end && soc && +end[1]<=24 && +soc[1]<=100)endpoints.push([+end[1],+soc[1]]);
+   }
+   if(endpoints.length>1){
+     graph.append(el('small','so-legend','历史时段末 SOC（%）'));
+     const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+     svg.setAttribute('viewBox','0 0 320 105');
+     const line=document.createElementNS(svg.namespaceURI,'polyline');
+     line.setAttribute('points',endpoints.map(([h,v])=>(12+h*12)+','+(90-v*.8)).join(' '));
+     line.setAttribute('stroke','#8e62ee');line.setAttribute('stroke-width','2.3');line.setAttribute('fill','none');
+     svg.append(line);
+     for(const [h,v] of endpoints){
+       const label=document.createElementNS(svg.namespaceURI,'text');
+       label.setAttribute('x',12+h*12);label.setAttribute('y',100);label.setAttribute('font-size','8');
+       label.setAttribute('text-anchor','middle');label.textContent=h+':00';svg.append(label);
+     }
+     graph.append(svg);
+   }else graph.append(el('small','so-legend','此记录未保存曲线采样点'));
+   box.append(graph);
+   if(oldCard){
+     for(const node of [...oldChart.parentElement.parentElement.children].slice(3)){
+       const copy=node.cloneNode(true);
+       if(copy.matches('details'))copy.className=copy.querySelector('table')?'so-assumptions':'so-controls';
+       else if(copy.textContent.startsWith('目标权重'))copy.className='so-weights';
+       else if(copy.textContent.startsWith('策略要点'))copy.className='so-takeaway';
+       else if(copy.querySelector('strong'))copy.className='so-confirm';
+       copy.querySelector('table')?.classList.add('so-table');
+       box.append(copy);
+     }
+   }else {
+     const start=lines.findIndex(line=>line.startsWith('策略要点'));
+     for(const line of lines.slice(start>=0?start:index+1))box.append(el('p',line.startsWith('目标权重')?'so-weights':'so-note',line));
+   }
+   row.querySelector('.bubble').append(box);
+   return true;
+ }
+ global.StrategyDemo=Object.freeze({handle,restoreLegacy,open:workbench,manageApplied,fromReminder,renderOpportunity,optimize(pid){const st=plant(pid);start(paramsFor('arbitrage',st),st,'proactive');},optimizeBackup(pid,reserve=60){const st=plant(pid),p=paramsFor('backup',st);p.reserveSOC=reserve;start(p,st,'proactive');}});
  global.SolarReminders?.refresh();
 })(globalThis);

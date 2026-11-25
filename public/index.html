@@ -24,8 +24,16 @@
 <link rel="stylesheet" href="/css/design.css?v=20261124-report-indicator">
 <link rel="stylesheet" href="/css/after-sales.css?v=20261118">
 <link rel="stylesheet" href="css/assistant.css?v=20261124-history-drawer">
+<link rel="stylesheet" href="css/desktop.css">
 </head>
 <body>
+<header class="view-toolbar">
+  <strong>FusionSolar</strong>
+  <div class="view-options" role="group" aria-label="页面视图">
+    <button type="button" data-layout="phone" aria-pressed="true">手机视图</button>
+    <button type="button" data-layout="desktop" aria-pressed="false">PC 视图</button>
+  </div>
+</header>
 
 <div class="phone-slot" id="phone-slot"><div class="phone">
   <div class="screen">
@@ -256,15 +264,19 @@
     <!-- ================= 小源 AI ================= -->
     <div class="xiaoyuan" id="xiaoyuan">
       <div class="xy-top">
+        <button type="button" class="xy-workspace-link" onclick="closeXY()">电站工作台</button>
         <button type="button" class="bk" onclick="closeXY()" aria-label="返回监控页面"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" aria-hidden="true"><path d="m14.5 5-7 7 7 7"/></svg></button>
         <span class="ti">华为小源</span>
         <button type="button" id="xy-history-open" title="对话列表" aria-label="对话列表" aria-controls="xy-history" aria-haspopup="dialog" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H9l-5 3v-4a3 3 0 0 1-1-2V7a3 3 0 0 1 3-3ZM7 9h10M7 13h6"/></svg></button>
       </div>
       <div hidden id="xy-history">
         <div class="xy-history-drawer" role="dialog" aria-modal="true" aria-label="对话历史">
+          <strong class="xy-rail-brand">✦　华为小源</strong>
           <input type="search" id="xy-history-query" placeholder="搜索对话" aria-label="搜索对话内容">
           <button type="button" id="xy-history-new"><span aria-hidden="true">＋</span> 新建对话</button>
+          <span class="xy-rail-caption">对话历史</span>
           <div id="xy-history-body"></div>
+          <button type="button" class="xy-rail-exit" onclick="closeXY()">电站工作台 ↗</button>
         </div>
       </div>
       <div class="xy-intro" id="xy-intro">
@@ -363,6 +375,7 @@
 
     <!-- 底部 Tab -->
     <div class="tabbar">
+      <button class="desktop-assistant" type="button" onclick="openXY()">✦　小源</button>
       <div class="tab active" data-p="home" onclick="go('home')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" color="#3a7afe"><path d="M3 11.2 12 3.5l9 7.7"/><path d="M5.3 9.8V20h13.4V9.8"/><path d="M9.8 20v-5.8h4.4V20"/></svg>
         <span class="tlabel">首页</span>
@@ -518,20 +531,20 @@
 <script src="js/vendor/purify.min.js"></script>
 <script src="js/chat-markdown.js"></script>
 <script src="js/monitor-ai.js?v=20261124"></script>
-<script src="js/monitor.js?v=20261124-answer-time-top"></script>
+<script src="js/monitor.js?v=20261125-layout"></script>
 <script src="js/intent-policy.js?v=20261117"></script>
 <script src="js/intent-awareness.js?v=20261117"></script>
 <script src="js/reminders.js?v=20261110-chat-only"></script>
 <script src="js/subscription-model.js"></script>
 <script src="js/subscriptions.js?v=20261110-secondary"></script>
 <script src="js/strategy-model.js?v=20261124-scroll"></script>
-<script src="js/strategies.js?v=20261124-skills"></script>
+<script src="js/strategies.js?v=20261125-legacy-layout"></script>
 <script src="js/production-strategy.js?v=20261105-excel-card"></script>
 <script src="js/media-hash.js"></script>
 <script src="js/multimodal.js"></script>
 <script src="js/human-support.js?v=20261118"></script>
 <script src="js/after-sales.js?v=20261118"></script>
-<script src="js/health.js?v=20261124-skills"></script>
+<script src="js/health.js?v=20261125-replay"></script>
 <script src="js/commissioning.js?v=20261110-camera-demo"></script>
 <script src="js/device-parameters.js?v=20261110-proactive"></script>
 <script src="js/ess-soc-model.js?v=20261117"></script>
@@ -542,9 +555,10 @@
 <script src="js/custom-skills-model.js?v=20261110-create-defaults"></script>
 <script src="js/custom-skills.js?v=20261124-skill-capsule"></script>
 <script src="js/design-model.js?v=20261124-brand-select"></script>
-<script src="js/simple-design.js?v=20261124-history-drawer"></script>
+<script src="js/simple-design.js?v=20261125-legacy-layout"></script>
 <script src="js/chat-skill-sheet.js?v=20261124-scroll"></script>
-<script src="js/chat-history.js?v=20261124-history-drawer"></script>
+<script src="js/chat-history.js?v=20261125-legacy-layout"></script>
 <script src="js/xiaoyuan-menu.js?v=20261124-list"></script>
-<script src="js/reading-scroll.js?v=20261124-report-frame"></script></body>
+<script src="js/reading-scroll.js?v=20261125-layout"></script>
+<script src="js/view-layout.js"></script></body>
 </html>
