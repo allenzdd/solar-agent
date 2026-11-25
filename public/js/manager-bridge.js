@@ -15,6 +15,11 @@
   const loginMessage = message => { document.getElementById('manager-login-message').textContent = message; };
   async function send(path, method, data) { return WorkspaceClient.request(path, { token, method, data, signal: AbortSignal.timeout(12000) }); }
   function loseLease(cause) {
+    if (cause.status === 409 && ready) {
+      ready = false;
+      location.reload(); // Re-enter as a viewer if another manager has taken over.
+      return;
+    }
     if (cause.status === 401 || cause.status === 409) {
       ready = false; status(cause.message);
       document.getElementById('manager-access').hidden = false;
@@ -44,7 +49,22 @@
     lastTickWall = Date.now();
   }
   let initialized = false;
+  let viewer = false, loading = false, reading = false;
+  function showViewer(snapshot) {
+    const lines = (snapshot?.plants || []).map(p => p.name + '　光伏 ' + (p.pv ?? '—') + ' kW　储能 SOC ' + (p.soc ?? '—') + '%');
+    document.getElementById('viewer-stations').textContent = lines.join('\n') || '等待电站快照';
+    status('已登录 · 共享查看' + (snapshot?.ts ? ' · 最新快照 ' + new Date(snapshot.ts).toLocaleTimeString() : ''));
+  }
+  setInterval(async () => {
+    if (!viewer || reading || loading) return;
+    reading = true;
+    try { const data = await send('state','GET'); if (viewer) showViewer(data.snapshot); }
+    catch (cause) { if (viewer) status('读取快照失败：' + cause.message); }
+    finally { reading = false; }
+  }, 3000);
   async function login(takeover = false, automatic = false) {
+    if (loading) return;
+    loading = true;
     try {
       const entered = document.getElementById('manager-token').value.trim(); if (entered) token = entered;
       loginMessage('正在连接共享服务…');
@@ -53,23 +73,33 @@
         token='';
         try {sessionStorage.removeItem('solar_manager_token');} catch {}
       } else session=await send('session','GET');
-      await send('lease', 'POST', { owner, takeover });
-      const snapshot = (await WorkspaceClient.request('state')).snapshot;
+      const [running, { snapshot }] = await Promise.all([
+        send('lease', 'POST', { owner, takeover }).then(() => true, cause => {
+          if (!takeover && cause.status === 409) return false;
+          throw cause;
+        }),
+        WorkspaceClient.request('state', {signal: AbortSignal.timeout(12000)})
+      ]);
       backupLocal();
       if (session.config) { try { localStorage.setItem('fs_sim_plants_v2', JSON.stringify(session.config)); } catch {} }
       document.getElementById('manager-access').hidden = true;
       document.body.dataset.managerReady = 'true';
       document.getElementById('manager-token').value = '';
       document.getElementById('manager-control-code').value = session.appControlToken;
+      viewer = !running;
+      document.body.dataset.managerMode = viewer ? 'viewer' : 'runner';
+      document.getElementById('manager-viewer').hidden = !viewer;
+      if (viewer) { showViewer(snapshot); return; }
       if (initialized) { location.reload(); return; }
-      if (!initialized) { simInit(); initialized = true; restoreRuntime(snapshot); }
+      if (!initialized) { simInit(snapshot); initialized = true; restoreRuntime(snapshot); }
       ready = true;
       savePlantCfg(); simRender();
       status('已连接共享服务，APP 可在其他设备查看');
     } catch (cause) {
       if(cause.status===401) {token='';try{sessionStorage.removeItem('solar_manager_token');}catch{}}
       loginMessage(automatic && cause.status===401?'请输入管理口令，登录后可记住 30 天。':cause.message);
-    }
+      if (viewer) status(cause.message);
+    } finally { loading = false; }
   }
   async function flushConfig() {
     if (!ready || configBusy || !pendingConfig) return;
@@ -133,6 +163,7 @@
   }
   document.getElementById('manager-login-form').addEventListener('submit', event => { event.preventDefault(); void login(); });
   document.getElementById('manager-takeover').addEventListener('click', () => { void login(true); });
+  document.getElementById('viewer-takeover').addEventListener('click', () => { void login(true); });
   document.getElementById('manager-logout').addEventListener('click', async () => {
     ready=false;
     try {await send('session','DELETE');token='';try{sessionStorage.removeItem('solar_manager_token');sessionStorage.removeItem('solar_manager_owner');}catch{}location.reload();}

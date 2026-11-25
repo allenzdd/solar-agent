@@ -714,6 +714,15 @@ function buildLoadTable(rows, name){
 }
 
 async function parseLoadFile(file){
+  if (!globalThis.XLSX) {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'vendor/xlsx.full.min.js';
+      script.onload = resolve;
+      script.onerror = () => reject(new Error('表格读取组件加载失败，请重试'));
+      document.head.append(script);
+    });
+  }
   const buf = await file.arrayBuffer();
   let wb;
   if (/\.csv$/i.test(file.name) || /\.txt$/i.test(file.name)) {
@@ -1911,7 +1920,7 @@ function syncAppLink(){
   if (a) a.href = '/app/';
 }
 
-function simInit(){
+function simInit(snapshot){
   SIMTIME.utc = Date.now();
   SIMTIME.speed = 3600;           /* 默认 3600× 加速（1 秒 = 1 小时）：演示走完一天很快，顶栏可切回实时 */
   syncAppLink();                  /* 分享链接访问时，把 sharecode 透传给「打开 APP 监控」 */
@@ -1931,7 +1940,7 @@ function simInit(){
       if (o.created) p.created = o.created;
       if (o.useLoadFile && LOAD_STORE.ready) { p.loadTable = LOAD_STORE.table; p.loadFromFile = true; }
       PLANTS.push(p);
-      seedPlant(p);
+      if (!snapshot?.plants?.some(saved => saved.id === p.id && Array.isArray(saved.hourly) && Array.isArray(saved.hist))) seedPlant(p);
     });
   } else {
     const p0 = makePlant({

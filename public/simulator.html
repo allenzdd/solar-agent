@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
 <base href="/">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="js/theme.js"></script>
+
 <link rel="stylesheet" href="css/theme.css">
 <title>电站仿真管理端</title>
 <link rel="stylesheet" href="css/simulator.css?v=20261110-light">
@@ -12,9 +12,11 @@
 <body class="sim-manager">
 <link rel="stylesheet" href="css/manager.css">
 <link rel="stylesheet" href="css/manager-light.css?v=20261110">
-<section class="manager-access" id="manager-access"><form class="manager-login" id="manager-login-form"><h1>电站仿真管理端</h1><p>使用管理口令登录，创建电站并将数据同步给独立 APP。首次运行可导入本浏览器原有电站；运行时请保持管理页打开。</p><label for="manager-token">管理口令</label><input type="password" id="manager-token" autocomplete="current-password" placeholder="MANAGER_TOKEN"><label class="manager-remember"><input type="checkbox" id="manager-remember" checked>记住登录 30 天</label><button type="submit">登录并运行</button><button type="button" id="manager-takeover">接管运行</button><p class="manager-login-message" id="manager-login-message" role="status"></p></form></section>
+<section class="manager-access" id="manager-access"><form class="manager-login" id="manager-login-form"><h1>电站仿真管理端</h1><p>使用管理口令登录，创建电站并将数据同步给独立 APP。首次运行可导入本浏览器原有电站；运行时请保持管理页打开。</p><label for="manager-token">管理口令</label><input type="password" id="manager-token" autocomplete="current-password" placeholder="MANAGER_TOKEN"><label class="manager-remember"><input type="checkbox" id="manager-remember" checked>记住登录 30 天</label><button type="submit">登录管理面</button><button type="button" id="manager-takeover">接管运行</button><p class="manager-login-message" id="manager-login-message" role="status"></p></form></section>
 <div class="manager-bar"><span id="manager-sync" role="status">正在连接共享服务…</span><span class="grow"></span><button type="button" id="manager-show-code">显示 / 隐藏 APP 控制码</button><input class="manager-control-code" id="manager-control-code" type="password" readonly aria-label="APP 控制口令"><button type="button" id="manager-logout">退出管理</button></div>
 
+<section id="manager-viewer" class="wrap" hidden><div class="mh-card"><h2>电站实时概览</h2><p id="viewer-stations" style="white-space:pre-line"></p><button type="button" id="viewer-takeover">接管运行并编辑</button></div></section>
+<style>#manager-viewer[hidden],body[data-manager-mode="viewer"] > :is(header.top,main.wrap){display:none}</style>
 <header class="top">
   <div class="brand">
     <span class="sim-logo">
@@ -319,7 +321,6 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="vendor/xlsx.full.min.js"></script>
 <script src="js/workspace-client.js"></script>
 <script src="js/simulator.js?v=20261110-light"></script>
 <script src="js/manager-bridge.js"></script>
