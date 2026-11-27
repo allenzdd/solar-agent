@@ -33,7 +33,7 @@
     <b id="sim-time">--:--</b>
     <span class="cs" id="sim-phase">白天 · 光照良好</span>
     <span class="sim-spd live" id="sim-spd" onclick="simCycleSpeed()" title="切换时间倍率 / 演示加速">实时</span>
-    <span class="cs" id="sim-day">第 1 天</span>
+    <span class="cs" id="sim-day">仿真日期 —</span>
   </div>
   <span class="sim-state" id="sim-state" onclick="simToggle()" title="点击暂停/继续"><i></i>运行中</span>
   <a class="lnk" id="lnk-app" href="/app/" target="fs_app" title="在新标签页打开手机 APP 仿真">
@@ -57,7 +57,7 @@
     <p class="sp-tip">重置全部：结束所有电站的演练，并收起当前所有提醒气泡（包含月报）；历史报告保留。后续新事件仍会正常提醒。</p>
     <p id="reminder-lab-status" class="sp-tip" role="status"></p>
     <div class="reminder-lab-row"><strong>主动感知意图 · 苏州电站</strong><button type="button" data-intent-action="trigger">触发冬季遮挡 · 收益偏低</button><button type="button" data-intent-action="restore">恢复正常 · 收起意图提醒</button></div>
-    <p class="sp-tip">自然因素场景：晴天、设备正常，冬季低太阳高度造成南侧阴影变长。仅在 APP 苏州电站详情页停留约3秒后提醒；同一次事件在同一浏览器只提醒一次，再次触发可重放。触发后 APP 发电量、收益和小源解释同步为遮挡场景数据，收益按电站电价计算；恢复正常后返回原快照，历史不改写。</p>
+    <p class="sp-tip">自然因素场景：晴天、设备正常，冬季低太阳高度造成南侧阴影变长。仅在 APP 苏州电站详情页收到场景后提醒；同一次事件在同一浏览器只提醒一次，再次触发可重放。触发后 APP 发电量、收益和小源解释同步为遮挡场景数据，收益按电站电价计算；恢复正常后返回原快照，历史不改写。</p>
     <p id="intent-lab-status" class="sp-tip" role="status"></p>
   </details>
   <!-- ================= 电站列表 ================= -->

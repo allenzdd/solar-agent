@@ -56,7 +56,7 @@ export async function extendHistory(history, configs, asOf) {
   if (!changed.length) return { history: result, changed };
   result.end = Math.max(...result.datasets.map(d => d.endUtc)); result.generatedAt = Date.now();
   result.configs = structuredClone(configs);
-  const startDate = localDate(result.start), endDate = localDate(result.end);
+  const startDate = localDate(result.start), endDate = localDate(result.end - 1);
   result.window = { kind: 'continuous-days', days: Math.round((Date.parse(endDate)-Date.parse(startDate))/86400000)+1, startDate, endDate, asOf: new Date(result.end).toISOString(), timezone:'Asia/Shanghai' };
   for (const config of configs) {
     const records = result.datasets.filter(d=>d.plantId===config.id), days = records.flatMap(d=>d.daily).sort((a,b)=>a.date.localeCompare(b.date));

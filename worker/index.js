@@ -13,7 +13,10 @@ export default {
     if (pathname === '/manage' || pathname === '/manage/') pathname = '/simulator.html';
     const asset = Object.hasOwn(ASSETS, pathname) ? ASSETS[pathname] : null;
     if (!asset) return new Response('Not found', { status: 404 });
+    const headers = { 'Content-Type': asset.type, ETag: asset.etag, 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' };
+    const validators = (request.headers.get('If-None-Match') || '').split(',').map(value => value.trim().replace(/^W\//, ''));
+    if (validators.includes('*') || validators.includes(asset.etag)) return new Response(null, { status: 304, headers });
     const body = request.method === 'HEAD' ? null : Uint8Array.from(atob(asset.body), char => char.charCodeAt(0));
-    return new Response(body, { headers: { 'Content-Type': asset.type, 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' } });
+    return new Response(body, { headers });
   },
 };

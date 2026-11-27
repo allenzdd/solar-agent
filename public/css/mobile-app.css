@@ -1,0 +1,31 @@
+body { padding: 0; min-height: 0; }
+.screen {
+  position: fixed;
+  inset: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+  border-radius: 0;
+  --tab-height: calc(57px + env(safe-area-inset-bottom, 0px));
+}
+.screen :is(.page, .xiaoyuan, .picker, .pdetail) { top: 0; }
+.screen .page { bottom: var(--tab-height); }
+.screen .tabbar { height: var(--tab-height); }
+.xy-workspace-link, .xy-rail-brand, .xy-rail-caption, .xy-rail-exit, .sd-back-label { display: none; }
+.sd-estimate-card .sd-actions > button { min-height: 44px; }
+.sw-del { border: 0; background: transparent; }
+.sw-acts:focus-within { z-index: 3; }
+html[data-client=wechat] :is(#share-intro, a[href="/manage/"]) { display: none; }
+
+.web-phone { display: contents; }
+@media (hover: hover) and (pointer: fine), (min-width: 760px) and (min-height: 600px) {
+  html:not([data-client=wechat]) body { min-height:100dvh; }
+  html:not([data-client=wechat]) .web-phone {
+    display:block; position:relative; isolation:isolate; overflow:hidden;
+    width:min(393px, calc(100vw - 40px), max(310px, 46dvh));
+    height:min(852px, calc(100dvh - 42px)); background:var(--page);
+    border-radius:46px; box-shadow:0 0 0 10px #191b20, 0 0 0 12px #393b42;
+  }
+  html:not([data-client=wechat]) .web-phone::before {
+    content:""; position:absolute; top:9px; left:50%; transform:translateX(-50%);
+    width:96px; height:24px; border-radius:20px; background:#101216;
+  }
+  html:not([data-client=wechat]) .web-phone > .screen { position:absolute; inset:40px 0 0; }
+}

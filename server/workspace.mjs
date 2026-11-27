@@ -67,9 +67,11 @@ export function createWorkspaceApi(store, { now = Date.now } = {}) {
             explanation:'冬季太阳高度角较低，电站南侧建筑或树木的阴影变长，遮住了部分组件，导致上午发电和收益偏低。设备运行正常，这个场景没有设备故障。',
             outlook:'预计接近中午，太阳升高、遮挡减轻后，出力会有所回升；具体恢复情况仍需观察。',
             evidence:{period:'冬季上午',weather:'晴天',equipment:'正常',cause:'季节性遮挡'}};
-          document.intentEvent=event;event=intentEventFor(document,now());return document;
+          document.intentEvent=event;event=intentEventFor(document,now());
+          if(!event)throw fail(409,'苏州电站已停运，恢复运行后可触发遮挡演练');
+          return document;
         });
-        return json({event,message:event?'冬季遮挡场景已触发：进入苏州电站详情页停留3秒，小源主动解释收益偏低原因。':'已恢复正常，苏州电站页的遮挡提醒将自动收起。'});
+        return json({event,message:event?'冬季遮挡场景已触发：打开 APP 苏州电站详情页，小源主动解释收益偏低原因。':'已恢复正常，苏州电站页的遮挡提醒将自动收起。'});
       }
       if(path === '/api/workspace/session' && method === 'POST') {
         if(!managerSessions.sameOrigin(request)) throw fail(403,'请从本站管理页面登录');
@@ -118,12 +120,13 @@ export function createWorkspaceApi(store, { now = Date.now } = {}) {
         if (!manager) throw fail(401, '需要管理口令');
         const input = await readBody(request, 2048);
         const scenarioHistory = input.type === 'monthly_report' ? await historyData() : null;
-        await store.update('workspace', current => {
+        const updated = await store.update('workspace', current => {
           const document = current || fresh();
           if(input.type==='clear'&&document.intentEvent?.plantId===input.plantId){document.intentEvent.status='recovered';document.intentEvent.recoveredAt=now();}
           setReminderScenario(document, input, now(), scenarioHistory); return document;
         });
-        return json({ ok: true, snapshot:(await store.read('workspace'))?.snapshot });
+        const snapshot=updated.snapshot;
+        return json({ ok:true, snapshot:input.compact ? {plants:snapshot.plants.map(({id,invTemp,inverterThermal})=>({id,invTemp,inverterThermal}))} : snapshot });
       }
       if (path === '/api/workspace/state' && method === 'GET') {const document=await store.read('workspace');return json({snapshot:applySeasonalShade(document,projectTargetSoc(document,enrichEnergySnapshot(applyInverterDrill(document||{},document?.snapshot||null,now()),await historyData())),now()),serverTime:now()});}
       if (path === '/api/workspace/session' && method === 'GET') {

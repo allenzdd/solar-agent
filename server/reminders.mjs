@@ -92,13 +92,16 @@ export function evaluateReminders(document, snapshot, now = Date.now()) {
       if (!finite(temperature) || temperature < 36 || p.closed) settle(a, p.id, 'temperature', now);
     }
     const inverterDrill=scenario?.type === 'inverter_heat';
-    const risk = inverterDrill ? inverterRisk(ps,p,utc) : null;
+    // Use the drill's modeled warm-up until enough post-trigger readings exist.
+    const warmup=inverterDrill ? [15,10,5,0].map(m=>({utc:scenario.startUtc-m*minute,invTemp:45-m*.25})) : [];
+    const readings=inverterDrill ? [...warmup,...(p.hist||[]).filter(h=>h.utc>=scenario.startUtc)] : [];
+    const risk = inverterDrill ? inverterRisk(ps,{...p,hist:readings},utc) : null;
     if(!inverterDrill) ps.inverterSamples=[];
-    if(risk) risk.demo=true;
+    if(risk){risk.demo=true;risk.method='演练使用预设的15分钟温升作为起始曲线，随后按仿真温度外推。';}
     if (risk) {
       const active = a.events.find(e => e.plantId === p.id && e.type === 'inverter-risk' && e.status === 'active');
       const reached = risk.currentC >= risk.thresholdC;
-      upsert(a, active?.id || 'inverter:' + p.id + ':' + utc, { plantId:p.id, plantName:p.name, deviceId:p.id+'-INV', type:'inverter-risk', level:reached?'urgent':'warning', simulation:true, demo:risk.demo, simUtc:utc,
+      upsert(a, active?.id || 'inverter:' + p.id + ':' + scenario.id, { plantId:p.id, plantName:p.name, deviceId:p.id+'-INV', type:'inverter-risk', level:reached?'urgent':'warning', simulation:true, demo:risk.demo, simUtc:utc,
         title: reached ? '逆变器温度已达演示高温阈值' : '发现 1 个设备存在过热风险',
         summary:p.name+' · 逆变器 '+p.id+'-INV 当前 '+risk.currentC+'℃。'+(reached?'已达到 70℃ 演示阈值。':'温度持续上升，若保持当前趋势，预计约 '+risk.etaMinutes+' 个仿真分钟后达到 70℃ 演示阈值。'),
         advice:'建议优先检查通风、风扇及散热片积尘，核查环境温度、负载与同型号设备温差。散热不良、积尘或风扇异常均为待排查原因，尚未诊断确认。由合格人员按停电维护规程处理；处理后观察温度趋势是否回落。70℃ 为演示阈值，实际以厂家规范为准。',
@@ -130,6 +133,7 @@ export function reminderFeed(document, now = Date.now()) {
 export function setReminderScenario(document, input, now = Date.now(), history = null) {
   const p = document.snapshot?.plants.find(p => p.id === input.plantId);
   if (!p || !['heat', 'inverter_heat', 'typhoon', 'clear', 'saving', 'monthly_report', 'storage_upgrade', 'weather_backup'].includes(input.type)) throw Object.assign(new Error('请选择现有电站和有效演练类型'), { status: 400 });
+  if(input.type==='inverter_heat' && p.closed) throw Object.assign(new Error('该电站已停运，请选择运行中的电站进行过热演练'),{status:409});
   const a = state(document), utc = document.snapshot.time.utc;
   if (!finite(utc)) throw Object.assign(new Error('仿真时钟尚未就绪'), { status: 409 });
   if (['saving', 'monthly_report', 'storage_upgrade', 'weather_backup'].includes(input.type)) {
@@ -157,6 +161,7 @@ export function setReminderScenario(document, input, now = Date.now(), history =
     if (a.plants[p.id]) a.plants[p.id].heatSince = null;
     for(const e of a.events) if(e.plantId===p.id&&e.status==='active'&&e.demo){e.status='archived';e.updatedAt=now;}
   } else {
+    if(input.type==='inverter_heat') settle(a,p.id,'inverter-risk',now);
     a.scenarios[p.id] = { id: String(now), type: input.type, startUtc: utc, untilUtc: utc + 86400000, expiresAt: now + 1800000 };
     if (input.type === 'heat') { const ps = a.plants[p.id] ||= { months: {}, previous: null, episode: 0 }; ps.heatSince = utc - 10 * minute; }
   }

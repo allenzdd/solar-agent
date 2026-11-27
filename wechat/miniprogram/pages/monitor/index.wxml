@@ -1,0 +1,6 @@
+<web-view wx:if="{{src}}" src="{{src}}" binderror="onLoadError"></web-view>
+<view wx:else class="notice">
+  <view>{{message}}</view>
+  <text wx:if="{{detail}}" selectable="true">{{detail}}</text>
+  <button wx:if="{{retryable}}" bindtap="openMonitor">重新连接</button>
+</view>

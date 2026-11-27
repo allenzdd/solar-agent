@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 for (const args of [
   ['scripts/build.mjs'],
+  ['--test', 'tests/wechat.test.mjs'],
   ['--test','tests/design.test.mjs','tests/after-sales.test.mjs'],
   ['--test','tests/target-soc-server.test.mjs'],
   ['--test','tests/ess-soc.test.mjs'],

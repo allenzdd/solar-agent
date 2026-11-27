@@ -29,7 +29,7 @@
       actionLabel:'去对话',
       title:invalid.length?'发现'+recommendationLabel(invalid[0])+'配置超限':'小源正在陪你设置参数',
       summary:invalid.length?invalid[0].label+'当前 '+(Number.isFinite(draft[invalid[0].key])?draft[invalid[0].key]:'未填写')+' '+invalid[0].unit+'，合理区间 '+(invalid[0].key==='target'?(plant.socMin??10):0)+'–'+invalid[0].limit+' '+invalid[0].unit+'，推荐 '+invalid[0].recommended+' '+invalid[0].unit+'。':'输入参数时，我会即时检查设备限值，并解释异常原因。可点“演示超限提醒”体验。',
-      onOpen:ask
+      onOpen:()=>ask(true)
     });
   }
   function load(){draft=read();dismissed='';welcome=true;render();}
@@ -131,19 +131,29 @@
     box.append(header,resultCard(invalid,recommend));
     panel.append(box);layer.append(panel);context();
   }
-  function ask(){
+  function ask(fromBubble=false){
     if(mode==='storage'&&draft.target===100&&globalThis.EssSocSettings){openSocAdvice();return;}
-    openXY();document.getElementById('xy-intro').classList.add('hide');document.getElementById('xy-chat').classList.add('on');
-    const invalid=issues();
+    const invalid=issues(),device=mode==='storage'?'储能':'逆变器';
+    if(fromBubble){
+      const issue=invalid[0],value=issue&&draft[issue.key];
+      const question=plant.name+'的'+device+'参数，'+(issue?issue.label+(Number.isFinite(value)?'设为 '+value+' '+issue.unit:'还未填写')+'，该怎么调整？':'帮我检查一下当前设置。');
+      SolarReminders.openPrepared('parameters:'+plant.id+':'+mode+':'+JSON.stringify([draft,limits()]),question,()=>parameterAnswer(invalid));
+    }else{
+      openXY();document.getElementById('xy-intro').classList.add('hide');document.getElementById('xy-chat').classList.add('on');
+      parameterAnswer(invalid);
+    }
+  }
+  function parameterAnswer(invalid){
     const reply=addMsg('ai',plant.name+' · '+(mode==='storage'?'储能':'逆变器')+'参数诊断');
     const bubble=reply.querySelector('.bubble');
     if(invalid.length){
-      bubble.append(resultCard(invalid,()=>{recommend();closeXY();context();}));
+      const origin=JSON.stringify([plant.id,mode,draft]);
+      bubble.append(resultCard(invalid,()=>{if(layer.hidden||origin!==JSON.stringify([plant.id,mode,draft])){toast("参数已变化，请查看最新建议");return;}recommend();closeXY();context();}));
     }else{
       bubble.append(el('p','','当前参数均在设备允许范围内。可以继续设置参数，或返回参数页保存。'));
     }
     const actions=el('div','dp-actions');actions.append(button('返回参数页',()=>{closeXY();context();}));
-    bubble.append(actions);context();
+    bubble.append(actions);context();return reply;
   }
   function handle(q){
     if(/打开.*设备参数|设备参数设置演示/.test(q)){open();return true;}

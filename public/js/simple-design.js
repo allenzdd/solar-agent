@@ -80,16 +80,21 @@ const fields=[['location','项目位置','text'],['area','屋顶面积（㎡）'
 function btn(text,fn,cls){const b=$('button',cls,text);b.type='button';b.onclick=fn;return b;}
 function editor(host,input,onGenerate){host.replaceChildren();const title=$('h3','','确认项目参数'),note=$('p','sd-note','已从需求提取位置、面积和年用电。其余为可修改的测算假设。');host.append(title,note);const form=$('form','sd-form');for(const[k,label,type]of fields){const l=$('label','',label),i=$('input');i.name=k;i.type=type||'number';i.value=input[k];i.required=true;if(i.type==='number'){i.step='any';i.min=k==='storageCount'?'0':'0.001';}l.append(i);form.append(l);}const e=$('p','sd-error');e.setAttribute('role','alert');const submit=$('button','sd-primary','生成定容报告');submit.type='submit';form.append(e,submit);form.onsubmit=ev=>{ev.preventDefault();try{const p={...input};for(const i of form.querySelectorAll('input'))p[i.name]=i.type==='number'?i.valueAsNumber:i.value;onGenerate(M.validate(p));}catch(c){e.textContent=c.message;}};host.append(form);}
 function show(p, archivedContent) {
+  openReader('光储项目定容报告',body=>{
+    if (archivedContent) body.append(archivedContent);
+    else body.innerHTML = report(M.calculate(p));
+  });
+}
+function openReader(title, fill, host, backLabel='返回对话') {
   const assistant = document.getElementById('xiaoyuan');
   if (!assistant) return;
   const previousFocus = document.activeElement;
-  const title = '光储项目定容报告';
+  host ||= assistant;
   const overlay = $('section','sd-overlay');
   overlay.setAttribute('aria-label',title);
   const body = $('div','sd-scroll');
   body.tabIndex = 0;
-  if (archivedContent) body.append(archivedContent);
-  else body.innerHTML = report(M.calculate(p));
+  fill(body);
 
   const reading = $('div','sd-reading');
   const track = $('div','sd-scroll-indicator');
@@ -126,14 +131,14 @@ function show(p, archivedContent) {
   });
   const navigation = $('div','xy-top');
   const back = btn('',close,'bk');
-  back.setAttribute('aria-label','返回对话');
+  back.setAttribute('aria-label',backLabel);
   const chevron = assistant.querySelector('.xy-top .bk svg');
   if (chevron) back.append(chevron.cloneNode(true));
   else back.textContent = '‹';
-  back.append($('span','sd-back-label','返回对话'));
+  back.append($('span','sd-back-label',backLabel));
   navigation.append(back,$('span','ti',title));
   overlay.append(navigation,reading);
-  assistant.append(overlay);
+  host.append(overlay);
   body.focus({preventScroll:true});
 }
 function generate(p) {
@@ -244,6 +249,7 @@ function handle(q){
   generate({...M.defaults,...p});return true;
 }
 function open(){openChatSkill('design');}
+g.ReportReader=Object.freeze({open:openReader});
 g.SimpleDesign=Object.freeze({handle,open,show,report,generate,restoreLegacy});
 const root=document.getElementById('design-report-root');if(root){try{const p={...M.defaults};for(const[k,v]of new URLSearchParams(location.search))if(k in p)p[k]=v;root.innerHTML=report(M.calculate(p));document.getElementById('design-print').onclick=()=>print();}catch(c){root.textContent='无法生成报告：'+c.message;}}
 })(globalThis);

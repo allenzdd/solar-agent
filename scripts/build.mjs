@@ -1,11 +1,35 @@
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'dist');
+const webStyles = [
+  'css/theme.css',
+  'css/monitor.css',
+  'css/reminders.css',
+  'css/subscriptions.css',
+  'css/strategies.css',
+  'css/multimodal.css',
+  'css/human-support.css',
+  'css/health.css',
+  'css/commissioning.css',
+  'css/device-parameters.css',
+  'css/ess-soc.css',
+  'css/task-follow.css',
+  'css/operations-ui.css',
+  'css/owner-memory.css',
+  'css/custom-skills.css',
+  'css/design.css',
+  'css/after-sales.css',
+  'css/assistant.css',
+  'css/desktop.css',
+];
+const webCss = webStyles.map(file => fs.readFileSync(path.join(root,'public',file),'utf8').replace(/\r\n/g,'\n')).join('\n');
+fs.writeFileSync(path.join(root,'public/css/web-layout.css'),webCss);
 const assets = {};
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.webp': 'image/webp', '.png': 'image/png', '.jpg': 'image/jpeg' };
+const types = { '.txt': 'text/plain; charset=utf-8', '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.webp': 'image/webp', '.png': 'image/png', '.jpg': 'image/jpeg' };
 function collect(directory) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     if (entry.isSymbolicLink() || entry.name.startsWith('.')) throw new Error('Public assets must not contain symlinks or hidden files');
@@ -14,7 +38,9 @@ function collect(directory) {
     else {
       if (!types[path.extname(filename)]) throw new Error('Unsupported public asset: ' + filename);
       const key = '/' + path.relative(path.join(root, 'public'), filename).split(path.sep).join('/');
-      assets[key] = { type: types[path.extname(filename)], body: fs.readFileSync(filename).toString('base64') };
+      const bytes = fs.readFileSync(filename);
+      const etag = '"' + createHash('sha256').update(bytes).digest('hex') + '"';
+      assets[key] = { type: types[path.extname(filename)], etag, body: bytes.toString('base64') };
     }
   }
 }

@@ -1907,11 +1907,11 @@ document.querySelectorAll('.chip').forEach(c=>{
     renderStations(c.dataset.f);
   });
 });
-function openXY(){
+function openXY({scrollToEnd=true}={}){
   document.getElementById('xiaoyuan').classList.add('open');
   globalThis.OwnerMemory?.render();
   const chat = document.getElementById('xy-chat');
-  setTimeout(()=>{ chat.scrollTop = chat.scrollHeight; }, 30);
+  if(scrollToEnd)setTimeout(()=>{ chat.scrollTop = chat.scrollHeight; }, 30);
   if (window.matchMedia('(pointer: fine)').matches) {
     setTimeout(()=>{ if (document.getElementById('xiaoyuan').classList.contains('open')) document.getElementById('xy-input').focus(); }, 120);
   }
@@ -3764,6 +3764,7 @@ function simPageUrl(hash){ return '/manage/' + (hash || ''); }
 /* 建站向导：真正打开仿真台的创建页（APP 只做监控，建站在仿真台完成） */
 function openWizard(){ toast('创建电站请使用独立仿真管理端'); }
 function openPlantPage(){
+  if (document.documentElement.dataset.client === 'wechat') return;
   try { window.open(simPageUrl(), '_blank'); } catch (e) {}
 }
 
@@ -3790,17 +3791,6 @@ setInterval(checkSimAck, 900);
 setInterval(updateBridgeTip, 2500);
 try { window.addEventListener('storage', e => { if (false) loadSimState(); }); } catch (e) {}
 
-/* 手机状态栏显示真实时间（只改文本节点，保留信号图标） */
-function tickSbTime(){
-  const el = document.getElementById('sb-time');
-  if (!el) return;
-  const d = new Date();
-  const txt = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-  if (el.childNodes[0] && el.childNodes[0].nodeType === 3) el.childNodes[0].nodeValue = txt + ' ';
-  else el.insertBefore(document.createTextNode(txt + ' '), el.firstChild);
-}
-tickSbTime();
-setInterval(tickSbTime, 15000);
 
 /* hash 直达视图（演示/测试用）：#stat 统计 / #dev 设备 / #ops 运维 */
 if (location.hash === '#stat') switchHome('stat');
@@ -3811,19 +3801,6 @@ else if (location.hash === '#xiaoyuan') openXY();
 renderStations('all'); renderAlarms(); renderDevices(); renderSugs(); renderBars('day'); renderRank(); updateScopeChip(); initializeAI();
 refreshChips(); renderAlarmSummary();
 document.querySelectorAll('.fchip').forEach(c => c.addEventListener('click', () => pickF(c)));
-/* 视口过矮/过窄时整机等比缩小，避免手机壳被裁切 */
-function fitPhone(){
-  const slot = document.getElementById('phone-slot');
-  const phone = slot.querySelector('.phone');
-  const reserved = document.body.hasAttribute('data-handset') ? 44 : 104;
-  const s = document.body.dataset.view === 'desktop' ? 1 :
-    Math.max(0.1, Math.min(1, (window.innerHeight - reserved) / 852, (window.innerWidth - 44) / 393));
-  phone.style.transform = s < 1 ? 'scale(' + s + ')' : '';
-  slot.style.width  = s < 1 ? (393 * s) + 'px' : '';
-  slot.style.height = s < 1 ? (852 * s) + 'px' : '';
-}
-window.addEventListener('resize', fitPhone);
-fitPhone();
 
 /* ============ 分享体验引导：仅首次访问（本地没有任何仿真数据）时出现 ============ */
 /* 朋友带 #p=<base64> 打开时：把电站数据交给仿真台，并以「演示模式」运行（独立存储，不动本机数据） */
@@ -3875,6 +3852,7 @@ function escHtml(s){
 }
 function introShow(){}
 function introGoSim(){
+  if (document.documentElement.dataset.client === 'wechat') return;
   try { localStorage.setItem('fs_intro_done', '1'); } catch (e) {}
   let w = null;
   try { w = window.open(simPageUrl(), '_blank'); } catch (e) {}

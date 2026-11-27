@@ -38,7 +38,7 @@
     groups = [...map.values()]; groups.forEach(g => g.days.sort((a, b) => a.date.localeCompare(b.date)));
     const window = feed.window;
     const time = window ? new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(window.asOf)) : '';
-    range.textContent = window ? `${window.startDate} 至 ${window.endDate} · 每站连续 ${window.days} 天 · 北京时间截至 ${time}。今天仅累计至截止时间；模型仿真，非真实历史天气与电表。历史按真实日历，与加速仿真时钟独立。` : '模型仿真历史数据，非真实历史观测。';
+    range.textContent = window ? `${window.startDate} 至 ${window.endDate} · 每站连续 ${window.days} 天 · 北京时间截至 ${time}。末日数据仅累计至该批次截止时间；模型仿真，非真实历史天气与电表。历史按真实日历，与加速仿真时钟独立。` : '模型仿真历史数据，非真实历史观测。';
     charts.replaceChildren();
     if (!groups.length) { charts.append(make('p', 'sp-tip', '暂无历史数据，请先完成历史仿真。')); return; }
     groups.forEach((g, i) => {

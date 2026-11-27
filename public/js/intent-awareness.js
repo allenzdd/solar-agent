@@ -8,8 +8,8 @@
  function context(){return {plantId:detail.dataset.plantId,detailOpen:detail.classList.contains('show'),chatOpen:document.getElementById('xiaoyuan')?.classList.contains('open'),hidden:document.hidden};}
  function close(){if(visibleId)global.SolarReminders?.clearContext(owner);visibleId=null;}
  function chatAbout(e){
-  close();openXY();document.getElementById('xy-intro').classList.add('hide');document.getElementById('xy-chat').classList.add('on');
-  addMsg('user',e.plantName+'今天为什么收益偏低？');
+  close();
+  SolarReminders.openPrepared('shade:'+e.id,e.plantName+'今天为什么收益偏低？',()=>{
   const row=addMsg('ai',e.explanation+'\n\n'+e.outlook),card=el('section','xr-event');
   card.append(el('h3','','冬季季节性遮挡 · 收益原因'),el('p','','冬季上午 · 晴天 · 设备正常'));
   const metrics=el('div','xr-metrics');
@@ -19,7 +19,8 @@
   }
   card.append(metrics,el('p','','场景发电量和收益较无遮挡参考低 '+e.evidence.reductionPercent+'%。建议观察上午到中午的出力变化，并核查南侧遮挡范围。'),el('small','','与电站页共用遮挡场景数据。收益按本电站电价计算；恢复正常后返回原快照，历史记录不改写。'));
   const actions=el('div','xr-actions'),back=el('button','','返回电站查看');back.type='button';back.addEventListener('click',()=>closeXY());actions.append(back);card.append(actions);row.querySelector('.bubble').append(card);
-  requestAnimationFrame(()=>row.scrollIntoView({block:'start',behavior:'smooth'}));
+  return row;
+  });
  }
  function show(e){
   if(!global.SolarReminders)return;
@@ -35,11 +36,12 @@
   if(due&&!visibleId)show(event);
  }
  async function poll(){
-  check();if(!context().detailOpen||document.hidden||busy||Date.now()-lastFetch<1400)return;
+  check();if(!context().detailOpen||document.hidden||busy||Date.now()-lastFetch<1000)return;
   busy=true;lastFetch=Date.now();
-  try{const result=await WorkspaceClient.request('intent-event',{signal:AbortSignal.timeout(5000)});event=result.event;check();}catch{event=null;check();}finally{busy=false;}
+  try{const result=await WorkspaceClient.request('intent-event',{signal:AbortSignal.timeout(5000)});event=result.event;check();}catch{check();}finally{busy=false;}
  }
  new MutationObserver(()=>{check();void poll();}).observe(detail,{attributes:true,attributeFilter:['class','data-plant-id']});
- document.addEventListener('visibilitychange',check);setInterval(()=>{void poll();},500);
+ document.addEventListener('visibilitychange',()=>{lastFetch=0;void poll();});
+ global.addEventListener?.('storage',e=>{if(e.key==='solar-shade-change'){lastFetch=0;void poll();}});setInterval(()=>{void poll();},500);
  global.IntentAwareness=Object.freeze({refresh:poll});
 })(globalThis);

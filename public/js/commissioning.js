@@ -35,7 +35,20 @@
   const checks=[['遮阳防雨','已按演练预设完成防雨设施与排水核验。'],['安全间距','已按演练预设完成可燃物与维护间距核验。'],['基础与固定','已按演练预设完成基座与固定方式核验。'],['设备外观','已按演练预设完成柜体与标识核验。']];for(const [title,note]of checks){const row=el('div','co-check');row.append(el('span','','✓'),el('div','',title+'：'+note));box.append(row);}
   const pass=el('div','co-password');pass.append(el('small','','储能开机密码（演示）'),el('strong','',password));box.append(pass,el('p','co-note','Demo 结果与密码仅在本页面有效；实际安装及开机须现场复核。'));body.append(box);footer.append(btn('回填开机密码并返回',backfill,'co-primary'));
  }
- function render(){if(layer.hidden)return;layer.replaceChildren();const header=el('header','co-header'),body=el('div','co-body'),footer=el('footer','co-footer');const title=view==='auth'?'储能开机授权':view==='notice'?'华为小源':'华为小源 · 安全审核';layer.setAttribute('aria-label',title);header.append(btn('‹',()=>{if(view!=='auth'){view='auth';render();}else close();},'co-back'),el('h2','',title),el('span','co-badge','Demo'));layer.append(header,body,footer);if(view==='auth')auth(body,footer);else if(view==='notice'){const card=el('section','co-card');card.append(el('strong','','✦ 小源主动提醒'),el('p','','储能开机授权还未完成。是否要去拍照？请拍摄柜体正面和周边安装环境，我会整理安全审核意见。'));const actions=el('div','co-actions');actions.append(btn('稍后',()=>{prompt=false;view='auth';render();},'co-secondary'),btn('去拍照',()=>goReview(true),'co-primary'));card.append(actions);body.append(card);}else reviewPage(body,footer);footer.hidden=!footer.childElementCount;globalThis.SolarReminders?.setContext(view==='auth'&&!authorized&&!filled?{visible:prompt,title:'储能开机授权待完成',summary:'是否要去拍照？小源可以帮你整理安全审核意见。',onOpen:()=>{view='notice';render();layer.querySelector('button').focus();}}:null);}
+ function openNotice(){
+  const session=version;
+  layer.hidden=true;SolarReminders.setContext(null);
+  SolarReminders.openPrepared('commissioning:'+session,'完成储能开机授权，还需要准备什么？',()=>{
+   const row=addMsg('ai','请准备两张现场照片：一张储能柜正面，一张周边环境。拍照或从相册上传后，可查看审核结果，再回填开机密码。');
+   function resume(take){
+    if(version!==session||filled||authorized){toast('授权状态已变化，请重新查看授权页');return;}
+    closeXY();layer.hidden=false;prompt=false;
+    if(take)goReview(true);else{view='auth';render();}
+   }
+   const actions=el('div','co-actions');actions.append(btn('去拍照',()=>resume(true),'co-primary'),btn('稍后',()=>resume(false),'co-secondary'));row.querySelector('.bubble').append(actions);return row;
+  });
+ }
+ function render(){if(layer.hidden)return;layer.replaceChildren();const header=el('header','co-header'),body=el('div','co-body'),footer=el('footer','co-footer');const title=view==='auth'?'储能开机授权':view==='notice'?'华为小源':'华为小源 · 安全审核';layer.setAttribute('aria-label',title);header.append(btn('‹',()=>{if(view!=='auth'){view='auth';render();}else close();},'co-back'),el('h2','',title),el('span','co-badge','Demo'));layer.append(header,body,footer);if(view==='auth')auth(body,footer);else reviewPage(body,footer);footer.hidden=!footer.childElementCount;globalThis.SolarReminders?.setContext(view==='auth'&&!authorized&&!filled?{visible:prompt,title:'储能开机授权待完成',summary:'是否要去拍照？小源可以帮你整理安全审核意见。',onOpen:openNotice}:null);}
  layer.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
  const link=el('a','','▣ 中型工商业电站开局 ›');link.href='#commissioning';link.setAttribute('role','menuitem');link.onclick=e=>{e.preventDefault();closeAppMenu();previousFocus=document.getElementById('app-menu-trigger');layer.hidden=false;view='auth';render();layer.querySelector('button').focus();};menu.append(link);
 })();

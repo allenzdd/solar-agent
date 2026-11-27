@@ -30,3 +30,11 @@ test('extension rejects future cutoffs and missing saved SOC',async()=>{
   delete h.datasets[0].hourly.at(-1).socEnd;
   await assert.rejects(extendHistory(h,[config],Date.parse('2026-11-04T12:00:00+08:00')),/SOC/);
 });
+test('midnight cutoff counts only dates with stored samples',async()=>{
+  const start=Date.parse('2026-11-03T00:00:00+08:00'),end=start+86400000;
+  const old=await simulateHistory([config],{start,end:start+3600000});
+  const {history}=await extendHistory(old,[config],end);
+  assert.equal(history.window.days,1);
+  assert.equal(history.window.endDate,'2026-11-03');
+  assert.equal(history.datasets[0].daily.length,1);
+});

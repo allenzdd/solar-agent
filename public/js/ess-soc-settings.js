@@ -24,8 +24,8 @@
  }
  function explain(){
   if(!plant||!M.advice(draft,livePlant()))return;const a=M.advice(draft,livePlant()),pid=plant.id,version=revision;
-  clearBubble();openXY();document.getElementById('xy-intro').classList.add('hide');document.getElementById('xy-chat').classList.add('on');
-  addMsg('user',plant.name+'目标SOC设置为100%，是否合适？');
+  clearBubble();
+  SolarReminders.openPrepared('soc:'+pid+':'+revision,plant.name+'的目标 SOC 设为 100%，是否合适？',()=>{
   const row=addMsg('ai','日常使用可以先考虑 '+a.recommended+'%。长期保持很高的SOC可能增加部分锂离子电池的日历老化，温度较高时更应留意；这不代表偶尔充到100%就会损坏电池。'),card=el('section','ess-setting-card');
   card.append(el('h3','','目标SOC设置建议'),el('p','','当前草稿 100% → 日常参考 '+a.recommended+'%'));
   const details=el('details'),summary=el('summary','','为什么建议留出余量？');
@@ -39,7 +39,8 @@
    draft=next;revision++;suppress='';closeXY();await submit(true);
   },'ess-confirm'));card.append(actions,el('small','','点击“采用建议并执行”后自动完成设置，并显示执行结果。'));
   if(!M.validate(draft,livePlant()))card.append(button('保留100%并确认下达',()=>{if(plant?.id!==pid||revision!==version){error.textContent='参数已变化，请重新确认。';return;}suppress=revision;closeXY();void submit(true);}));
-  row.querySelector('.bubble').append(card);requestAnimationFrame(()=>row.scrollIntoView({block:'start',behavior:'smooth'}));
+  row.querySelector('.bubble').append(card);return row;
+  });
  }
  async function submit(confirmed){
   if(pending||sending)return;const invalid=M.validate(draft,livePlant());

@@ -11,9 +11,15 @@
 - 通用：`npm start`，或 `node server.mjs`。
 - 配置：私有 `.env`，字段模板见 `.env.example`，已有系统环境变量优先。
 - APP 使用端：`http://localhost:8788/app/`，仿真管理端：`http://localhost:8788/manage/`。根地址兼容 APP，旧 `simulator.html` 兼容管理端。
+- HTTP 和 HTTPS 的 Web 入口均为 `/app/`。电脑可切换并记住手机或 PC 视图，手机横竖屏均使用手机视图。小程序通过自己的 web-view 进入 `/wechat/index.html`。
+- Web 和小程序共用 `/api/workspace/` 读取管理面发布的电站数据。部署时将两个协议入口和小程序的业务域名指向同一个后端工作区。
 - 显示模式：在「我的 → 设置 → 深色模式」选择深色或浅色，浏览器会保存选择，并同步到同来源的仿真页面。
 
 首次启动缺少 `.env` 时，一键启动脚本会创建模板，填写密钥后再次启动。具体步骤见 [本地配置说明](本地配置说明.md)。
+
+## 微信小程序用户端
+
+微信开发者工具可直接导入 [wechat/](wechat/)。本地预览、业务域名配置和联调步骤见[小程序说明](wechat/README.md)。
 
 ## 代码结构
 

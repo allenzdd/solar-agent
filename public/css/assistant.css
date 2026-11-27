@@ -207,10 +207,13 @@
 }
 
 #xy-history-open {
-  display: grid; place-items: center; width: 36px; height: 36px; padding: 0;
-  border: 0; border-radius: 50%; background: transparent; color: var(--text-secondary); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; flex: none; gap: 5px;
+  height: 36px; padding: 0 10px; border: 1px solid var(--border); border-radius: 18px;
+  background: var(--card); color: var(--text-secondary); font: inherit;
+  font-size: 13px; white-space: nowrap; cursor: pointer;
 }
-#xy-history-open:hover { background: var(--divider); }
+#xy-history-open:hover, #xy-history-open[aria-expanded=true] { background: var(--raised); }
+#xy-history-open:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 #xy-history:not([hidden]) {
   position: absolute; inset: 0; z-index: 500; display: flex; justify-content: flex-end;
   overflow: hidden; background: rgb(5 13 27 / 45%);

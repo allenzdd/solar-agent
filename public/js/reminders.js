@@ -53,14 +53,45 @@
   }
   function show(id) { lastFocus = document.activeElement; selected = id || null; drawer.hidden = false; positionBubble(); renderBody(); drawer.querySelector('.xr-top button').focus(); }
   function close() { drawer.hidden = true; selected = null; positionBubble(); if (lastFocus?.isConnected && !bubble.hidden) lastFocus.focus(); }
+  // Reminder evidence is already available. Mount both messages in the same turn.
+  function openPrepared(key, question, renderAnswer) {
+    openXY({scrollToEnd:false});
+    document.getElementById('xy-intro').classList.add('hide');
+    const chat=document.getElementById('xy-chat');
+    chat.classList.add('on');
+    let query=[...chat.querySelectorAll('[data-reminder-query]')].find(row=>row.dataset.reminderQuery===key);
+    if(!query){
+      query=addMsg('user',question);
+      query.dataset.reminderQuery=key;
+      const answer=renderAnswer();
+      answer.dataset.reminderId=key;
+      const content=answer.querySelector('.bubble').innerText;
+      convo.history.push({role:'user',content:question,reminderId:key},{role:'assistant',content,reminderId:key});
+    }
+    requestAnimationFrame(()=>{if(query.isConnected)query.scrollIntoView({block:'start'});});
+  }
   function chatAbout(e) {
-    if (!e) return;
+    if(!e)return;
+    if(!drawer.hidden)close();
+    const prompts={
+      'storage-upgrade':'适合增购储能吗？预计能多赚多少？',
+      'saving-opportunity':'怎么利用谷充峰放节省电费？',
+      'weather-backup':'明天天气有风险，备用电量建议设多少？',
+      'inverter-risk':'逆变器为什么有过热风险，应如何排查？',
+      'temperature':'电池温度偏高，应该怎么办？',
+      'weather':'台风来前，要做什么准备？',
+      'monthly':(e.report?.month||'上月')+'运营得怎么样？'
+    };
+    openPrepared('event:'+e.id,e.plantName+'，'+(prompts[e.type]||e.title+'是什么情况？'),()=>renderEventAnswer(e));
+  }
+  function renderEventAnswer(e){
     if (['saving-opportunity','storage-upgrade','weather-backup'].includes(e.type)) {
-      if (!drawer.hidden) close();
-      openXY();
-      document.getElementById('xy-intro').classList.add('hide');
-      document.getElementById('xy-chat').classList.add('on');
-      const row = addMsg('ai', e.plantName + ' · ' + e.title);
+      let answer=e.summary||e.title;
+      if(e.type==='storage-upgrade'){
+        const u=e.upgrade;
+        answer=`按本次演示方案，增配 ${u.addKwh} kWh 储能后，预计年收益从 ${fmt(u.beforeAnnual)} 元提高到 ${fmt(u.afterAnnual)} 元，增加 ${fmt(u.afterAnnual-u.beforeAnnual)} 元；自用率从 ${u.beforeSelf}% 提升到 ${u.afterSelf}%。`;
+      }
+      const row=addMsg('ai',answer);
       if(e.type==='saving-opportunity') globalThis.StrategyDemo.renderOpportunity(row.querySelector('.bubble'), e.plantId);
       else row.querySelector('.bubble').append(sceneCard(e));
       row.querySelector('.bubble').append(make('p', '', e.advice));
@@ -69,19 +100,8 @@
       const later = make('button', '', '30 分钟后提醒');
       later.addEventListener('click', () => { save(e, { until: Date.now() + 1800000 }); later.disabled = true; later.textContent = '已设置稍后提醒'; });
       actions.append(optimize, later); row.querySelector('.bubble').append(actions);
-      setTimeout(() => row.scrollIntoView({ block: 'start' }), 70);
-      return;
+      return row;
     }
-    if (!drawer.hidden) close();
-    openXY();
-    document.getElementById('xy-intro').classList.add('hide');
-    const chat = document.getElementById('xy-chat'); chat.classList.add('on');
-    const question = e.type === 'inverter-risk' ? '逆变器为什么有过热风险，应如何排查？' : e.type === 'temperature' ? '设备温度偏高，怎么办？' : e.type === 'weather' ? '台风来前，要做什么准备？' : e.report?.historical ? `${e.report.month} 运营得怎么样？` : '上个月运营得怎么样？';
-    const queryText = `系统代问 · ${e.plantName}\n${question}`;
-    let queryRow = [...chat.querySelectorAll('[data-reminder-query]')].find(el => el.dataset.reminderQuery === e.id);
-    if (!queryRow) { queryRow = addMsg('user', ''); queryRow.dataset.reminderQuery = e.id; queryRow.classList.add('xr-system-query'); }
-    const queryBubble = queryRow.querySelector('.bubble'); queryBubble.replaceChildren();
-    queryBubble.append(make('span', 'xr-query-label', `系统代问 · ${e.plantName}`), make('span', 'xr-query-text', question));
     let text = `小源主动提醒 · ${e.demo ? '仿真演练' : '仿真数据'}\n${e.plantName} · ${e.title}\n\n${e.summary}`;
     if (e.risk) text += '\n\n判断依据：'+e.risk.sampleCount+' 个温度采样，覆盖 '+e.risk.observedMinutes+' 个仿真分钟；升温速率 '+(e.risk.rateCPerMinute ?? '暂无')+' ℃/仿真分钟。'+e.risk.method;
     if (e.report) {
@@ -92,9 +112,7 @@
     if (e.status !== 'active') text += e.status === 'archived' ? '\n\n演示已重置，这条提醒已收起，历史记录仍可查看。' : '\n\n这条提醒已恢复或结束。';
     if (feed.stale || failed) text += '\n\n当前数据已停更或连接失败，以上是最后观测记录。';
     text += '\n\n你可以继续问我这件事。';
-    let row = [...chat.querySelectorAll('[data-reminder-id]')].find(el => el.dataset.reminderId === e.id);
-    if (row) setBubbleText(row, text);
-    else { row = addMsg('ai', text); row.dataset.reminderId = e.id; }
+    const row=addMsg('ai',text);
     if (e.risk) {
       const b=row.querySelector('.bubble'); b.replaceChildren();
       b.append(make('strong','','发现 1 个设备存在过热风险'),make('p','',e.plantName+' · '+(e.demo?'仿真演练':'仿真温度观测')),riskChart(e),make('p','','建议优先排查通风、风扇与散热片积尘。'));
@@ -103,19 +121,28 @@
       const actions=make('div','xr-actions'), later=make('button','','暂不处理 · 30 分钟后提醒');later.type='button';later.addEventListener('click',()=>{save(e,{until:Date.now()+1800000});later.textContent='已设置稍后提醒';later.disabled=true;});
       actions.append(later);const optimize=make('button','','评估保守充放电方案');optimize.type='button';optimize.addEventListener('click',()=>globalThis.StrategyDemo?.fromReminder('life',e.plantId));actions.append(optimize);b.append(detail,actions);
     }
-    if(['weather','temperature'].includes(e.type)){const strategy=make('button','',e.type==='weather'?'生成备用电方案':'评估保守充放电方案');strategy.type='button';strategy.addEventListener('click',()=>globalThis.StrategyDemo?.fromReminder(e.type==='weather'?'backup':'life',e.plantId));row.querySelector('.bubble').append(strategy);}
+    if(e.type==='weather'||e.type==='temperature'){
+      const backup=e.type==='weather';
+      const strategy=make('button','xr-strategy-card xy-sug');
+      strategy.type='button';
+      const icon=make('span','xy-sug-icon',backup?'ϟ':'♨');
+      icon.setAttribute('aria-hidden','true');
+      const copy=make('span','xy-sug-copy');
+      copy.append(make('strong','',backup?'生成备用电方案':'评估保守充放电方案'),
+        make('span','',backup?'按重要负载估算备用电量':'查看高温期间的充放电建议'));
+      strategy.append(icon,copy);
+      strategy.addEventListener('click',()=>globalThis.StrategyDemo?.fromReminder(backup?'backup':'life',e.plantId));
+      row.querySelector('.bubble').append(strategy);
+    }
     if (e.report) {
       const attachment = make('a', 'xr-report-file');
       attachment.href = '/api/workspace/reports/' + encodeURIComponent(e.id);
-      attachment.target = '_blank'; attachment.rel = 'noopener';
-      attachment.append(make('strong', '', '▤ 查看完整报告（HTML）'), make('span', '', `${e.plantName} · ${e.report.month} · 可打印保存为 PDF ↗`));
+      
+      attachment.append(make('strong', '', '▤ 查看完整报告（HTML）'), make('span', '', `${e.plantName} · ${e.report.month} · 可打印保存为 PDF`));
       row.querySelector('.bubble').append(attachment);
       if(e.demo) row.querySelector('.bubble').prepend(reportHero(e));
     }
-    convo.history = convo.history.filter(message => message.reminderId !== e.id);
-    convo.history.push({ role: 'user', content: queryText, reminderId: e.id }, { role: 'assistant', content: text, reminderId: e.id });
-    // Keep the system-authored question visible instead of jumping past it to a long report's end.
-    setTimeout(() => { if (queryRow.isConnected) queryRow.scrollIntoView({ block: 'start' }); }, 70);
+    return row;
   }
   function riskChart(e) {
     const r=e.risk, box=make('div','xr-risk-chart');
@@ -167,6 +194,17 @@
     layer.addEventListener('click',event=>{if(event.target===layer)exit();});
     layer.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();exit();}if(event.key==='Tab'){const last=consent.disabled?dismiss:consent;if(event.shiftKey&&document.activeElement===dismiss){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();dismiss.focus();}}});
   }
+  document.addEventListener('click',event=>{
+    const link=event.target.closest?.('a[href^="/api/workspace/reports/"]');
+    if(!link || !link.closest('#xy-chat')) return;
+    event.preventDefault();
+    ReportReader.open('电站运营月报',body=>{
+      const frame=make('iframe','report-month-frame');
+      frame.title='电站运营月报';
+      frame.src=link.href;
+      body.append(frame);
+    });
+  });
   function reportHero(e){
     const r=e.report,box=make('div','xr-scene');box.append(make('strong','',r.month+' 运营报告'),make('p','','▤ 上月关键数据'));
     const grid=make('div','xr-metrics');
@@ -271,8 +309,10 @@
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
     if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   });
+  globalThis.addEventListener?.('storage',e=>{if(e.key==='solar-reminder-change')void poll();});
   void poll(); setInterval(poll, 5000);
   globalThis.SolarReminders = Object.freeze({
+    openPrepared,
     setContext(value){
       if(!context&&!value)return;
       if(!context&&value)savedBallPosition={left:ball.style.left,top:ball.style.top};

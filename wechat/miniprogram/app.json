@@ -1,0 +1,8 @@
+{
+  "pages": ["pages/monitor/index"],
+  "window": {
+    "navigationBarTitleText": "光储电站",
+    "navigationBarBackgroundColor": "#202f45",
+    "navigationBarTextStyle": "white"
+  }
+}

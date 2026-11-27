@@ -7,6 +7,10 @@ const fresh=()=>({config:[{id:'P3',inverterThermal:{mode:'rising'}}],snapshot:{t
 test('click activates changing telemetry, generates trend alert, and reset returns to normal without re-alerting',()=>{
  const w=fresh();w.snapshot=applyInverterDrill(w,w.snapshot,100);assert.equal(w.snapshot.plants[0].invTemp,41);assert.equal(w.snapshot.plants[0].inverterThermal,null);
  setReminderScenario(w,{plantId:'P3',type:'inverter_heat'},100);assert.equal(w.snapshot.plants[0].invTemp,45);
+ const first=w.assistant.events.find(e=>e.type==='inverter-risk'&&e.status==='active');
+ assert.equal(first.risk.etaMinutes,100);
+ setReminderScenario(w,{plantId:'P3',type:'inverter_heat'},101);
+ assert.notEqual(w.assistant.events.find(e=>e.type==='inverter-risk'&&e.status==='active').id,first.id);
  for(const m of [5,10,15]){w.snapshot.time.utc=start+m*minute;w.snapshot=applyInverterDrill(w,w.snapshot,100+m);evaluateReminders(w,w.snapshot,100+m);}
  assert.equal(w.snapshot.plants[0].invTemp,48.8);
  const active=()=>w.assistant.events.filter(e=>e.status==='active'&&e.type==='inverter-risk');assert.equal(active().length,1);assert.equal(active()[0].demo,true);

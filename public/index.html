@@ -5,28 +5,58 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="js/theme.js"></script>
-<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="/css/web-layout.css?v=20261127-split">
 <title>FusionSolar 仿真模拟</title>
-<link rel="stylesheet" href="css/monitor.css?v=20261123-shortcut-row">
-<link rel="stylesheet" href="css/reminders.css?v=20261110-context">
-<link rel="stylesheet" href="css/subscriptions.css">
-<link rel="stylesheet" href="css/strategies.css">
-<link rel="stylesheet" href="css/multimodal.css">
-<link rel="stylesheet" href="css/human-support.css">
-<link rel="stylesheet" href="css/health.css">
-<link rel="stylesheet" href="css/commissioning.css">
-<link rel="stylesheet" href="css/device-parameters.css?v=20261110-result">
-<link rel="stylesheet" href="css/ess-soc.css?v=20261117">
-<link rel="stylesheet" href="css/task-follow.css?v=20261110-owner">
-<link rel="stylesheet" href="css/operations-ui.css?v=20261110">
-<link rel="stylesheet" href="css/owner-memory.css?v=20261110-welcome">
-<link rel="stylesheet" href="css/custom-skills.css?v=20261124-skill-capsule">
-<link rel="stylesheet" href="/css/design.css?v=20261124-report-indicator">
-<link rel="stylesheet" href="/css/after-sales.css?v=20261118">
-<link rel="stylesheet" href="css/assistant.css?v=20261124-history-drawer">
-<link rel="stylesheet" href="css/desktop.css">
+<script defer src="js/workspace-client.js"></script>
+<script defer data-prime-state src="js/app-bridge.js"></script>
+<script defer src="js/history.js"></script>
+<script defer src="js/api-client.js"></script>
+<script defer src="js/vendor/marked.min.js"></script>
+<script defer src="js/vendor/purify.min.js"></script>
+<script defer src="js/chat-markdown.js"></script>
+<script defer src="js/monitor-ai.js?v=20261124"></script>
+<script defer src="js/monitor.js?v=20261126-prepared"></script>
+<script defer src="js/intent-policy.js?v=20261117"></script>
+<script defer src="js/intent-awareness.js?v=20261126-prepared"></script>
+<script defer src="js/reminders.js?v=20261126-action-card"></script>
+<script defer src="js/subscription-model.js"></script>
+<script defer src="js/subscriptions.js?v=20261126-report-reading"></script>
+<script defer src="js/strategy-model.js?v=20261124-scroll"></script>
+<script defer src="js/strategies.js?v=20261125-legacy-layout"></script>
+<script defer src="js/production-strategy.js?v=20261105-excel-card"></script>
+<script defer src="js/media-hash.js"></script>
+<script defer src="js/multimodal.js"></script>
+<script defer src="js/human-support.js?v=20261118"></script>
+<script defer src="js/after-sales.js?v=20261118"></script>
+<script defer src="js/health.js?v=20261126-report-reading"></script>
+<script defer src="js/commissioning.js?v=20261126-prepared"></script>
+<script defer src="js/device-parameters.js?v=20261126-prepared"></script>
+<script defer src="js/ess-soc-model.js?v=20261117"></script>
+<script defer src="js/ess-soc-settings.js?v=20261126-prepared"></script>
+<script defer src="js/task-follow.js?v=20261110-chat-only"></script>
+<script defer src="js/operations-ui.js?v=20261110"></script>
+<script defer src="js/owner-memory.js?v=20261123-shortcut-row"></script>
+<script defer src="js/custom-skills-model.js?v=20261110-create-defaults"></script>
+<script defer src="js/custom-skills.js?v=20261124-skill-capsule"></script>
+<script defer src="js/design-model.js?v=20261124-brand-select"></script>
+<script defer src="js/simple-design.js?v=20261126-report-reading"></script>
+<script defer src="js/chat-skill-sheet.js?v=20261124-scroll"></script>
+<script defer src="js/chat-history.js?v=20261125-legacy-layout"></script>
+<script defer src="js/xiaoyuan-menu.js?v=20261124-list"></script>
+<script defer src="js/reading-scroll.js?v=20261125-layout"></script>
+<script defer src="js/view-layout.js?v=20261127-split"></script>
 </head>
 <body>
+<script>
+(() => {
+  const handset = navigator.userAgentData?.mobile || /iPhone|iPod|Android.*Mobile|Windows Phone|HarmonyOS.*Mobile/i.test(navigator.userAgent) ||
+    (matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) <= 540);
+  document.body.toggleAttribute('data-handset', handset);
+  let view = 'phone';
+  try { if (!handset && localStorage.getItem('fs_monitor_view') === 'desktop') view = 'desktop'; } catch {}
+  document.body.dataset.view = view;
+})();
+</script>
 <header class="view-toolbar">
   <strong>FusionSolar</strong>
   <div class="view-options" role="group" aria-label="页面视图">
@@ -267,7 +297,7 @@
         <button type="button" class="xy-workspace-link" onclick="closeXY()">电站工作台</button>
         <button type="button" class="bk" onclick="closeXY()" aria-label="返回监控页面"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" aria-hidden="true"><path d="m14.5 5-7 7 7 7"/></svg></button>
         <span class="ti">华为小源</span>
-        <button type="button" id="xy-history-open" title="对话列表" aria-label="对话列表" aria-controls="xy-history" aria-haspopup="dialog" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H9l-5 3v-4a3 3 0 0 1-1-2V7a3 3 0 0 1 3-3ZM7 9h10M7 13h6"/></svg></button>
+        <button type="button" id="xy-history-open" title="新建或查找对话" aria-label="对话，新建或查找对话" aria-controls="xy-history" aria-haspopup="dialog" aria-expanded="false"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M14 5v14m3-10h1m-1 4h1"/></svg><span>对话</span></button>
       </div>
       <div hidden id="xy-history">
         <div class="xy-history-drawer" role="dialog" aria-modal="true" aria-label="对话历史">
@@ -523,42 +553,42 @@
 
 
 
-<script src="js/workspace-client.js"></script>
-<script src="js/history.js"></script>
-<script src="js/app-bridge.js"></script>
-<script src="js/api-client.js"></script>
-<script src="js/vendor/marked.min.js"></script>
-<script src="js/vendor/purify.min.js"></script>
-<script src="js/chat-markdown.js"></script>
-<script src="js/monitor-ai.js?v=20261124"></script>
-<script src="js/monitor.js?v=20261125-layout"></script>
-<script src="js/intent-policy.js?v=20261117"></script>
-<script src="js/intent-awareness.js?v=20261117"></script>
-<script src="js/reminders.js?v=20261110-chat-only"></script>
-<script src="js/subscription-model.js"></script>
-<script src="js/subscriptions.js?v=20261110-secondary"></script>
-<script src="js/strategy-model.js?v=20261124-scroll"></script>
-<script src="js/strategies.js?v=20261125-legacy-layout"></script>
-<script src="js/production-strategy.js?v=20261105-excel-card"></script>
-<script src="js/media-hash.js"></script>
-<script src="js/multimodal.js"></script>
-<script src="js/human-support.js?v=20261118"></script>
-<script src="js/after-sales.js?v=20261118"></script>
-<script src="js/health.js?v=20261125-replay"></script>
-<script src="js/commissioning.js?v=20261110-camera-demo"></script>
-<script src="js/device-parameters.js?v=20261110-proactive"></script>
-<script src="js/ess-soc-model.js?v=20261117"></script>
-<script src="js/ess-soc-settings.js?v=20261117"></script>
-<script src="js/task-follow.js?v=20261110-chat-only"></script>
-<script src="js/operations-ui.js?v=20261110"></script>
-<script src="js/owner-memory.js?v=20261123-shortcut-row"></script>
-<script src="js/custom-skills-model.js?v=20261110-create-defaults"></script>
-<script src="js/custom-skills.js?v=20261124-skill-capsule"></script>
-<script src="js/design-model.js?v=20261124-brand-select"></script>
-<script src="js/simple-design.js?v=20261125-legacy-layout"></script>
-<script src="js/chat-skill-sheet.js?v=20261124-scroll"></script>
-<script src="js/chat-history.js?v=20261125-legacy-layout"></script>
-<script src="js/xiaoyuan-menu.js?v=20261124-list"></script>
-<script src="js/reading-scroll.js?v=20261125-layout"></script>
-<script src="js/view-layout.js"></script></body>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
 </html>

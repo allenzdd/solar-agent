@@ -1880,7 +1880,7 @@ function simRender(){
     : (SIMTIME.anchored
         ? ' · 自 ' + pad2(((SIM && SIM.start) || {}).mo || 1) + '/' + pad2(((SIM && SIM.start) || {}).dd || 1) + ' ' + pad2(((SIM && SIM.start) || {}).hh || 0) + ':00 起'
         : ' · 实时');
-  setTxt('sim-day', lt ? '第 ' + lt.doy + ' 天 · ' + lt.tzLabel + modeTxt : '');
+  setTxt('sim-day', lt ? '仿真日期 ' + lt.date + ' · ' + lt.tzLabel + modeTxt : '');
   const spd = document.getElementById('sim-spd');
   if (spd) {
     spd.textContent = SIMTIME.speed === 1 ? '实时' : SIMTIME.speed + '× 加速';

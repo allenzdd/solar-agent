@@ -1,7 +1,7 @@
 // The APP reads server snapshots only; browser storage is used solely for preferences and operator credentials.
 (function (global) {
   'use strict';
-  let token = '', busy = false, lastPoll = 0, cached = null;
+  let token = '', pending = null, lastPoll = 0, cached = null;
   try { token = sessionStorage.getItem('solar_app_control') || ''; } catch {}
   let ackBusy = false, connectionError = '';
   let controlDialog=null;
@@ -16,13 +16,16 @@
     });return controlDialog;
   }
   async function state() {
-    if (busy || Date.now() - lastPoll < 1800) return cached;
-    busy = true; lastPoll = Date.now();
-    try { const result = await WorkspaceClient.request('state', { signal: AbortSignal.timeout(10000) }); cached = result.snapshot; connectionError = ''; }
-    catch (cause) { connectionError = cause.message; throw cause; }
-    finally { busy = false; }
-    return cached;
+    if (pending) return pending;
+    if (Date.now() - lastPoll < 1800) return cached;
+    lastPoll = Date.now();
+    pending = WorkspaceClient.request('state', { signal: AbortSignal.timeout(10000) })
+      .then(result => { connectionError = ''; cached = result.snapshot; return cached; })
+      .catch(cause => { connectionError = cause.message; throw cause; })
+      .finally(() => { pending = null; });
+    return pending;
   }
+  if (global.document?.currentScript?.hasAttribute('data-prime-state')) state().catch(() => {});
   async function command(input) {
     const send=()=>WorkspaceClient.request('commands',{method:'POST',token,data:input,signal:AbortSignal.timeout(12000)});
     try{const result=await send();lastPoll=0;return result;}

@@ -103,7 +103,7 @@
   }
   function recover(sid){const s=find(sid);if(!s?.latched){toast('当前没有待恢复的异常');return;}const log={id:id(),subscriptionId:sid,at:Date.now(),title:s.title+' · 恢复正常',channel:'inapp',to:'小源站内通知',scope:scopeName(s),kind:'recovery',status:'recovered',simulated:true};if(record(s,log,{latched:false}))preview(log);}
   function preview(log){
-    openLayer(log.kind==='recovery'?'模拟恢复':'发送预览',body=>{
+    const render=body=>{
       body.append(el('div','xs-success',log.kind==='recovery'?'✓ 已模拟恢复正常':'✓ 模拟发送成功 · 未真实投递'),el('p','xs-banner','这是交互演示，不会调用邮件或短信服务。'));
       const letter=el('article','xs-letter');letter.append(el('span','xs-letter-channel',channelName[log.channel]+'预览'),el('h3','',log.title),row('接收人',log.to),row('电站范围',log.scope));
       if(log.report){const r=log.report;letter.append(el('p','','报告月份：'+r.month+'。本次为手动演示，预览最近一个自然月；不改变订阅的下次计划。'));
@@ -114,8 +114,14 @@
       }else if(log.kind==='temperature'){letter.append(el('p','',`【小源演示】${log.scope}逆变器温度达到${log.evidence.temperature}℃，持续${log.evidence.durationMinutes}分钟，建议检查通风、风扇与散热片。`),el('p','xs-hint','本次使用演练样本，不改变电站温度与运行策略。'));
       }else if(log.kind==='offline'){letter.append(el('p','',`【小源演示】${log.scope}设备已连续离线${log.evidence.durationMinutes}分钟，请检查网络、电源及采集链路。`),el('p','xs-hint','这是离线演练，不会将电站实际置为离线。'));
       }else letter.append(el('p','','异常已模拟恢复，重复提醒锁定已解除。下一轮异常可重新模拟触发。'));
-      body.append(letter,el('p','xs-next','演示时间：'+M.format(log.at)+'（北京时间）'),button('查看模拟发送记录',()=>{tab='deliveries';openManager();},'xs-primary'));
-    },()=>openManager());
+      body.append(letter,el('p','xs-next','演示时间：'+M.format(log.at)+'（北京时间）') );
+      if(!log.report)body.append(button('查看模拟发送记录',()=>{tab='deliveries';openManager();},'xs-primary'));
+    };
+    if(log.report){
+      ReportReader.open('订阅运营月报',body=>{
+        const content=el('div','xs-layer-body');render(content);body.append(content);
+      },layer.hidden?null:layer,layer.hidden?'返回对话':tab==='deliveries'?'返回发送记录':'返回订阅');
+    }else openLayer(log.kind==='recovery'?'模拟恢复':'发送预览',render,()=>openManager());
   }
   function chooseScope(data,q){const matches=plants().filter(p=>q.includes(p.name)||(p.city&&q.includes(p.city.replace(/市$/,''))));if(matches.length===1)data.scope=matches[0].id;return data;}
   function handle(q){

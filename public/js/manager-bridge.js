@@ -178,8 +178,10 @@
   for(const button of document.querySelectorAll('[data-intent-action]'))button.addEventListener('click',async()=>{
     const message=document.getElementById('intent-lab-status');
     if(!ready){message.textContent='请先登录管理端。';return;}
-    button.disabled=true;
-    try{const result=await send('intent-event','POST',{action:button.dataset.intentAction});message.textContent=result.message;}
+    button.disabled=true;message.textContent='正在更新苏州电站遮挡场景…';
+    try{const result=await send('intent-event','POST',{action:button.dataset.intentAction});message.textContent=result.message;
+      try{localStorage.setItem('solar-shade-change',result.event?.id||'restore-'+Date.now());}catch{}
+    }
     catch(cause){message.textContent=cause.message;}
     finally{button.disabled=false;}
   });
@@ -195,11 +197,12 @@
   for (const button of document.querySelectorAll('[data-reminder-scenario]')) button.addEventListener('click', async () => {
     const message = document.getElementById('reminder-lab-status');
     if (!ready || !lab.value) { message.textContent = '请先登录并创建电站。'; return; }
-    button.disabled = true;
+    button.disabled = true;message.textContent='正在为所选电站设置演练…';
     try {
-      const result=await send('reminders/scenario', 'POST', { plantId: lab.value, type: button.dataset.reminderScenario });
+      const result=await send('reminders/scenario', 'POST', { plantId: lab.value, type: button.dataset.reminderScenario, compact: true });
       applyThermal(result.snapshot?.plants);simRender();
-      message.textContent=button.dataset.reminderScenario==='clear'?'所选电站全部演练已结束，逆变器温度已恢复正常。':button.dataset.reminderScenario==='inverter_heat'?'升温演练已启动：45℃起，每个仿真分钟升高0.25℃；趋势形成后自动生成过热风险提醒。':`“${button.textContent}”提醒已生成，请打开 APP 查看小源提醒（约5秒同步）。可点击“去对话”继续演示；再次点击可重放。`;
+      try{localStorage.setItem('solar-reminder-change',String(Date.now()));}catch{}
+      message.textContent=button.dataset.reminderScenario==='clear'?'所选电站全部演练已结束，逆变器温度已恢复正常。':button.dataset.reminderScenario==='inverter_heat'?'已生成逆变器过热风险提醒。演练从 45℃ 开始升温，APP 小源提醒中可查看模拟温升曲线。':`“${button.textContent}”提醒已生成，请打开 APP 查看小源提醒（约5秒同步）。可点击“去对话”继续演示；再次点击可重放。`;
     } catch (cause) { message.textContent = cause.message; }
     finally { button.disabled = false; }
   });

@@ -1,0 +1,2 @@
+.notice { margin: 160rpx 56rpx; color: #35465b; font-size: 30rpx; line-height: 1.6; }
+.notice button { margin-top: 36rpx; }
